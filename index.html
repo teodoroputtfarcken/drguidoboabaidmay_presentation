@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dr. Guido Boabaid May — Dashboard de Tráfego</title>
+<link rel="icon" type="image/png" href="https://lp.drguidoboabaidmay.com.br/wp-content/uploads/2026/05/Logo-2.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+/* ── RESET & TOKENS ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:       #0D1B3E;
+  --navy-mid:   #142248;
+  --navy-light: #1D3066;
+  --blue:       #2E6BE6;
+  --blue-soft:  #4A90D9;
+  --accent:     #5EEAD4;  /* teal accent — sóbrio mas distinto */
+  --gold:       #E8C97A;
+  --white:      #FFFFFF;
+  --off-white:  #F4F6FB;
+  --text-muted: #8899BB;
+  --text-body:  #C8D4EE;
+  --border:     rgba(255,255,255,0.07);
+  --card-bg:    rgba(255,255,255,0.04);
+  --card-hover: rgba(255,255,255,0.07);
+  --radius:     12px;
+  --radius-lg:  20px;
+  --transition: 0.25s cubic-bezier(.4,0,.2,1);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--navy);
+  color: var(--white);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── BACKGROUND TEXTURE ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(46,107,230,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(94,234,212,0.06) 0%, transparent 50%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── LAYOUT ── */
+.app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 240px; flex-shrink: 0;
+  background: rgba(10,18,40,0.95);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh;
+  padding: 0;
+  backdrop-filter: blur(20px);
+}
+
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+}
+.sidebar-logo .brand {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px; line-height: 1.35;
+  color: var(--white);
+  letter-spacing: 0.01em;
+}
+.sidebar-logo .brand span {
+  display: block; font-family: 'Inter', sans-serif;
+  font-size: 10px; font-weight: 300; color: var(--text-muted);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.sidebar-nav { flex: 1; padding: 16px 0; }
+
+.nav-section-label {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-muted);
+  padding: 0 24px 8px;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 24px; cursor: pointer;
+  color: var(--text-muted); font-size: 13.5px; font-weight: 400;
+  transition: var(--transition);
+  border-left: 2px solid transparent;
+  text-decoration: none;
+}
+.nav-item:hover { color: var(--white); background: var(--card-bg); }
+.nav-item.active {
+  color: var(--white); font-weight: 500;
+  border-left-color: var(--accent);
+  background: linear-gradient(90deg, rgba(94,234,212,0.08) 0%, transparent 100%);
+}
+.nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+
+.sidebar-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-muted);
+  line-height: 1.5;
+}
+.sidebar-footer strong { color: var(--text-body); display: block; margin-bottom: 2px; }
+
+/* ── MAIN ── */
+.main { flex: 1; overflow-y: auto; padding: 40px 48px; }
+
+/* ── SECTION (tab content) ── */
+.section { display: none; animation: fadeUp 0.35s ease both; }
+.section.active { display: block; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── PAGE HEADER ── */
+.page-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 36px;
+}
+.page-header-left {}
+.page-header .eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 6px;
+}
+.page-header h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 30px; font-weight: 400; color: var(--white);
+  line-height: 1.15;
+}
+.page-header .subtitle {
+  font-size: 14px; color: var(--text-muted); margin-top: 6px; font-weight: 300;
+}
+
+/* ── MÊS BADGE ── */
+.mes-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(94,234,212,0.1); border: 1px solid rgba(94,234,212,0.2);
+  color: var(--accent); font-size: 12px; font-weight: 500;
+  padding: 6px 14px; border-radius: 100px;
+}
+
+/* ── KPI GRID ── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px; margin-bottom: 36px;
+}
+
+.kpi-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  transition: var(--transition);
+  position: relative; overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--blue-soft), transparent);
+  opacity: 0;
+  transition: var(--transition);
+}
+.kpi-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.12); }
+.kpi-card:hover::before { opacity: 1; }
+
+.kpi-card.accent-teal::before { background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6; }
+.kpi-card.accent-gold::before  { background: linear-gradient(90deg, transparent, var(--gold), transparent); opacity: 0.6; }
+.kpi-card.accent-blue::before  { background: linear-gradient(90deg, transparent, var(--blue), transparent); opacity: 0.6; }
+
+.kpi-label {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.kpi-value {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 28px; color: var(--white); line-height: 1;
+  margin-bottom: 6px;
+}
+.kpi-value.large { font-size: 32px; }
+.kpi-delta {
+  font-size: 12px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.kpi-delta.up   { color: #4ADE80; }
+.kpi-delta.down { color: #F87171; }
+.kpi-delta.neutral { color: var(--text-muted); }
+
+
+/* ── KPI NOTE ── */
+.kpi-note {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(46,107,230,0.06);
+  border: 1px solid rgba(46,107,230,0.14);
+  border-radius: 10px;
+  padding: 11px 16px;
+  margin-bottom: 32px;
+  font-size: 12.5px; color: var(--text-muted); line-height: 1.55;
+}
+.kpi-note strong { color: var(--text-body); font-weight: 600; }
+.kpi-note-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(46,107,230,0.18); color: var(--blue-soft);
+  font-size: 11px; font-weight: 700; margin-top: 1px;
+}
+
+/* ── SECTION TITLE ── */
+.section-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: 18px; display: flex; align-items: center; gap: 10px;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* ── CHART GRID ── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px; margin-bottom: 36px;
+}
+.chart-grid.triple { grid-template-columns: repeat(3, 1fr); }
+.chart-grid.single { grid-template-columns: 1fr; }
+
+.chart-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  transition: var(--transition);
+}
+.chart-card:hover { border-color: rgba(255,255,255,0.11); }
+.chart-card.wide { grid-column: span 2; }
+
+.chart-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 20px;
+}
+.chart-title {
+  font-size: 14px; font-weight: 500; color: var(--white);
+}
+.chart-subtitle {
+  font-size: 12px; color: var(--text-muted); margin-top: 2px;
+}
+.chart-badge {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 100px;
+  background: rgba(46,107,230,0.15); color: var(--blue-soft);
+  border: 1px solid rgba(46,107,230,0.2);
+}
+.chart-badge.teal {
+  background: rgba(94,234,212,0.1); color: var(--accent);
+  border-color: rgba(94,234,212,0.2);
+}
+
+.chart-badge.kommo {
+  background: rgba(251,146,60,0.12); color: #FB923C;
+  border-color: rgba(251,146,60,0.25);
+}
+
+.chart-badge.neutral {
+  background: rgba(136,153,187,0.12); color: #A0AFCC;
+  border-color: rgba(136,153,187,0.2);
+}
+
+
+.chart-wrap { position: relative; }
+.chart-wrap canvas { max-height: 220px; }
+.chart-wrap.tall canvas { max-height: 280px; }
+
+/* ── CAMPAIGN TABLE ── */
+.table-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden; margin-bottom: 20px;
+}
+.table-header-row {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.table-title { font-size: 14px; font-weight: 500; color: var(--white); }
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-muted);
+  padding: 12px 16px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+thead th:not(:first-child) { text-align: right; }
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: var(--transition);
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.07) !important; }
+tbody td {
+  padding: 13px 16px; font-size: 13px; color: var(--text-body);
+}
+tbody td:first-child {
+  color: var(--white); font-weight: 500; font-size: 12.5px;
+}
+tbody td:not(:first-child) { text-align: right; }
+
+/* zebra por grupo de mês */
+tbody tr.mes-group-odd  { background: rgba(255,255,255,0.02); }
+tbody tr.mes-group-even { background: rgba(46,107,230,0.14); }
+/* separador visual entre grupos de mês */
+tbody tr.mes-group-first td {
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+tbody tr.mes-group-first:first-child td { border-top: none; }
+
+.camp-name {
+  display: flex; align-items: center; gap: 8px;
+}
+.camp-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+
+.pill {
+  display: inline-block; font-size: 11px; font-weight: 500;
+  padding: 2px 9px; border-radius: 100px;
+}
+.pill.green { background: rgba(74,222,128,0.12); color: #4ADE80; }
+.pill.red   { background: rgba(248,113,113,0.12); color: #F87171; }
+.pill.blue  { background: rgba(74,144,217,0.12);  color: #4A90D9; }
+.pill.gold  { background: rgba(232,201,122,0.12); color: var(--gold); }
+
+/* ── MES FILTER ── */
+.mes-filter {
+  display: flex; gap: 8px; margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.mes-btn {
+  padding: 7px 16px; border-radius: 100px; cursor: pointer;
+  font-size: 12.5px; font-weight: 500;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted);
+  transition: var(--transition);
+}
+.mes-btn:hover { color: var(--white); border-color: rgba(255,255,255,0.2); }
+.mes-btn.active {
+  background: var(--blue); border-color: var(--blue);
+  color: var(--white);
+}
+.mes-btn.active-all {
+  background: rgba(94,234,212,0.1); border-color: rgba(94,234,212,0.3);
+  color: var(--accent);
+}
+
+/* ── NARRATIVE CARDS ── */
+.narrative-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 20px; margin-bottom: 32px;
+}
+
+.narrative-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: var(--transition);
+  display: flex; flex-direction: column;
+}
+.narrative-card:hover { border-color: rgba(255,255,255,0.11); }
+
+.narrative-card-header {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.narrative-mes {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 4px;
+}
+.narrative-card-header h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 17px; font-weight: 400; color: var(--white);
+}
+
+.narrative-card-body { padding: 18px 20px; flex: 1; }
+.narrative-block { margin-bottom: 18px; }
+.narrative-block:last-child { margin-bottom: 0; }
+.narrative-block-title {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--blue-soft);
+  margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.narrative-block-title::before {
+  content: ''; width: 3px; height: 12px;
+  background: var(--blue-soft); border-radius: 2px; flex-shrink: 0;
+}
+.narrative-block-title.meta { color: #818CF8; }
+.narrative-block-title.meta::before { background: #818CF8; }
+.narrative-block-title.other { color: var(--gold); }
+.narrative-block-title.other::before { background: var(--gold); }
+
+.narrative-text {
+  font-size: 13px; font-weight: 300; color: var(--text-body);
+  line-height: 1.7; white-space: pre-line;
+}
+.empty-narrative {
+  font-size: 13px; color: var(--text-muted); font-style: italic;
+}
+
+/* ── PRÓXIMOS PASSOS ── */
+.proximos-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.proximo-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.proximo-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.proximo-mes {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold); margin-bottom: 3px;
+}
+.proximo-header h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 16px; font-weight: 400; color: var(--white);
+}
+.proximo-body { padding: 18px 20px; }
+.proximo-block { margin-bottom: 16px; }
+.proximo-block:last-child { margin-bottom: 0; }
+.proximo-block-title {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.proximo-block-title.google { color: var(--blue-soft); }
+.proximo-block-title.google::before {
+  content: ''; width: 3px; height: 12px;
+  background: var(--blue-soft); border-radius: 2px;
+}
+.proximo-block-title.meta { color: #818CF8; }
+.proximo-block-title.meta::before {
+  content: ''; width: 3px; height: 12px;
+  background: #818CF8; border-radius: 2px;
+}
+.proximo-block-title.obs { color: var(--text-muted); }
+.proximo-text {
+  font-size: 12.5px; font-weight: 300; color: var(--text-body);
+  line-height: 1.7; white-space: pre-line;
+}
+
+/* ── DIVIDER ── */
+.divider { height: 1px; background: var(--border); margin: 32px 0; }
+
+/* ── LOADING ── */
+.loading-screen {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 300px; gap: 16px; color: var(--text-muted);
+}
+.spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
+/* ── PERIOD FILTER BAR ── */
+.period-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 18px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.period-filter .pf-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin-right: 4px; white-space: nowrap;
+}
+.pf-select-wrap {
+  position: relative; display: flex; align-items: center;
+}
+
+.pf-select {
+  appearance: none; -webkit-appearance: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px; font-weight: 500;
+  padding: 7px 32px 7px 26px;
+  cursor: pointer;
+  outline: none;
+  transition: var(--transition);
+  min-width: 110px;
+}
+.pf-select:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); color: var(--white); }
+.pf-select:focus { border-color: var(--blue-soft); color: var(--white); }
+.pf-select option { background: #142248; color: var(--white); }
+.pf-chevron {
+  position: absolute; right: 11px; pointer-events: none;
+  color: var(--text-muted); font-size: 10px;
+}
+
+.pf-btn-ultimo {
+  margin-left: auto;
+  background: var(--navy-light);
+  border: 1px solid rgba(46,107,230,0.35);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 8px 18px; border-radius: 100px;
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
+}
+.pf-btn-ultimo:hover { background: var(--blue); border-color: var(--blue); }
+.pf-btn-ultimo.active { background: var(--blue); border-color: var(--blue); }
+
+@media (max-width: 600px) {
+  .period-filter { gap: 8px; padding: 10px 14px; }
+  .pf-btn-ultimo { margin-left: 0; width: 100%; text-align: center; }
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ── RESPONSIVE ── */
+
+/* Hamburger button — hidden on desktop */
+.hamburger {
+  display: none;
+  position: fixed; top: 14px; left: 14px; z-index: 200;
+  width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(10,18,40,0.92); border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  cursor: pointer; align-items: center; justify-content: center;
+  flex-direction: column; gap: 5px; padding: 10px;
+  transition: var(--transition);
+}
+.hamburger span {
+  display: block; width: 18px; height: 2px;
+  background: var(--white); border-radius: 2px;
+  transition: var(--transition);
+}
+.hamburger:hover { background: rgba(20,34,72,0.98); }
+
+/* Overlay */
+.sidebar-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 99;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(2px);
+}
+.sidebar-overlay.visible { display: block; }
+
+@media (max-width: 1100px) {
+  .main { padding: 28px 28px; }
+  .chart-grid { grid-template-columns: 1fr; }
+  .chart-card.wide { grid-column: span 1; }
+  .narrative-grid, .proximos-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .hamburger { display: flex; }
+
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    z-index: 100; height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+    width: 260px;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .main { padding: 20px 16px 40px; }
+  /* Push content down so it clears the hamburger */
+  .section { padding-top: 52px; }
+
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .chart-grid { grid-template-columns: 1fr; gap: 14px; }
+  .chart-card.wide { grid-column: span 1; }
+  .narrative-grid, .proximos-grid { grid-template-columns: 1fr; gap: 14px; }
+
+  .page-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+  .page-header h1 { font-size: 24px; }
+
+  .mes-filter { gap: 6px; }
+  .mes-btn { font-size: 11.5px; padding: 6px 12px; }
+
+  table { font-size: 12px; }
+  thead th, tbody td { padding: 10px 10px; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi-value { font-size: 22px; }
+  .kpi-card { padding: 14px 16px; }
+}
+
+/* ── LOGIN OVERLAY ── */
+#login-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 15, 35, 0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: opacity 0.5s ease, backdrop-filter 0.5s ease;
+}
+#login-overlay.hiding {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  pointer-events: none;
+}
+
+.login-card {
+  background: rgba(20, 34, 72, 0.92);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 20px;
+  padding: 40px 44px;
+  width: 100%; max-width: 380px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(46,107,230,0.12);
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  animation: loginIn 0.45s cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes loginIn {
+  from { opacity:0; transform: translateY(24px) scale(0.97); }
+  to   { opacity:1; transform: translateY(0)    scale(1); }
+}
+
+.login-logo {
+  margin-bottom: 28px;
+}
+.login-logo img {
+  max-width: 150px; max-height: 48px; object-fit: contain; display: block;
+}
+
+.login-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 18px; font-weight: 600; color: #fff;
+  margin-bottom: 4px; text-align: center;
+}
+.login-subtitle {
+  font-size: 13px; color: #8899BB; margin-bottom: 28px;
+  text-align: center; font-weight: 300;
+}
+
+.login-field {
+  width: 100%; margin-bottom: 14px;
+}
+.login-field label {
+  display: block; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: #8899BB; margin-bottom: 6px;
+}
+.login-field input {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 11px 16px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.login-field input::placeholder { color: #4A5A7A; }
+.login-field input:focus {
+  border-color: #2E6BE6;
+  background: rgba(46,107,230,0.08);
+}
+
+.login-error {
+  width: 100%;
+  font-size: 12px; color: #F87171;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.2);
+  border-radius: 8px;
+  padding: 9px 14px;
+  margin-bottom: 14px;
+  display: none;
+  text-align: center;
+}
+.login-error.visible { display: block; }
+
+.login-btn {
+  width: 100%; margin-top: 8px;
+  background: #2E6BE6;
+  border: none; border-radius: 10px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px; font-weight: 600;
+  padding: 13px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  letter-spacing: 0.02em;
+}
+.login-btn:hover { background: #2560D0; }
+.login-btn:active { transform: scale(0.98); }
+
+.login-user-hint {
+  margin-top: 18px;
+  font-size: 11.5px; color: #4A5A7A;
+  text-align: center; line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+  .login-card { padding: 32px 24px; margin: 16px; }
+}
+
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="https://lp.drguidoboabaidmay.com.br/wp-content/uploads/2026/05/Logo-2.png" alt="Logo Dr. Guido">
+    </div>
+
+    <div class="login-field">
+      <label>Usuário</label>
+      <input type="text" id="login-user" placeholder="Seu nome de usuário" autocomplete="username" />
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <div class="login-error" id="login-error">Usuário ou senha incorretos.</div>
+
+    <button class="login-btn" onclick="doLogin()">Entrar</button>
+
+  </div>
+</div>
+
+<button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <img id="sidebar-logo-img" src="https://lp.drguidoboabaidmay.com.br/wp-content/uploads/2026/05/Logo-2.png" alt="Logo" style="max-width:160px; max-height:52px; object-fit:contain; display:block;">
+    </div>
+    <nav class="sidebar-nav">
+      <div style="margin-bottom:20px;">
+        <div class="nav-section-label">Métricas</div>
+        <a class="nav-item active" onclick="showSection('visao-geral',this)">
+          <span class="icon">◈</span> Visão Geral
+        </a>
+        <a class="nav-item" onclick="showSection('google-ads',this)">
+          <span class="icon">🔍</span> Google Ads
+        </a>
+      </div>
+      <div>
+        <div class="nav-section-label">Análise</div>
+        <a class="nav-item" onclick="showSection('o-que-aconteceu',this)">
+          <span class="icon">📋</span> O que Aconteceu
+        </a>
+        <a class="nav-item" onclick="showSection('proximos-passos',this)">
+          <span class="icon">→</span> Próximos Passos
+        </a>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <strong>Teodoro Puttfarcken</strong>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ═══════════════════════════════════════════
+         SEÇÃO 1 — VISÃO GERAL
+    ═══════════════════════════════════════════ -->
+    <div class="section active" id="visao-geral">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Performance</h1>
+        </div>
+
+      </div>
+
+      <!-- FILTRO DE PERÍODO -->
+      <div class="period-filter" id="pf-vg">
+        <span class="pf-label">Período:</span>
+        <div class="pf-select-wrap">
+          <select class="pf-select" id="pf-vg-ini" onchange="applyFilter('vg')">
+          </select>
+          <span class="pf-chevron">▾</span>
+        </div>
+        <div class="pf-select-wrap">
+          <select class="pf-select" id="pf-vg-fim" onchange="applyFilter('vg')">
+          </select>
+          <span class="pf-chevron">▾</span>
+        </div>
+        <button class="pf-btn-ultimo" id="pf-vg-ultimo" onclick="setUltimoMes('vg')">Último Mês</button>
+      </div>
+      <!-- KPIs de destaque -->
+      <div class="kpi-grid" id="kpi-visao"></div>
+      <div class="kpi-note">
+        <span class="kpi-note-icon">ℹ</span>
+        Os indicadores acima refletem o <strong>último mês do ano vigente</strong>. O delta (▲▼) compara com o mês imediatamente anterior dentro do mesmo período.
+      </div>
+
+      <div class="section-title">Investimento & Distribuição</div>
+      <div class="chart-grid">
+        <div class="chart-card wide">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Investimento Total por Mês</div>
+              <div class="chart-subtitle">Google Ads vs Meta Ads</div>
+            </div>
+            <div class="chart-badge neutral">Mensal</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-investimento"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Google Ads — Evolução</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Conversões</div>
+              <div class="chart-subtitle">Volume total de conversões</div>
+            </div>
+            <div class="chart-badge">Google</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-conversoes"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">CPA Médio</div>
+              <div class="chart-subtitle">Custo por aquisição</div>
+            </div>
+            <div class="chart-badge">Google</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-cpa"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">CTR & Taxa de Conversão</div>
+              <div class="chart-subtitle">Qualidade do tráfego</div>
+            </div>
+            <div class="chart-badge">Google</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-ctr-conv"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Cliques & Impressões</div>
+              <div class="chart-subtitle">Volume gerado</div>
+            </div>
+            <div class="chart-badge">Google</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-clicks"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Alterações na Conta</div>
+              <div class="chart-subtitle">Volume de otimizações</div>
+            </div>
+            <div class="chart-badge">Google</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-alteracoes"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Meta Ads — Evolução</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Alcance Total</div>
+              <div class="chart-subtitle">Pessoas impactadas</div>
+            </div>
+            <div class="chart-badge teal">Meta</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-alcance"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Seguidores & Custo por Seguidor</div>
+              <div class="chart-subtitle">Aquisição de audiência</div>
+            </div>
+            <div class="chart-badge teal">Meta</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-seguidores"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Funil Google → Kommo CRM</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Quantidade de leads vindos do tráfego</div>
+              <div class="chart-subtitle">Qualidade do funil</div>
+            </div>
+            <div class="chart-badge kommo">Kommo</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-funil"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">% Conversões Google para leads no Kommo</div>
+              <div class="chart-subtitle">Quantidade de conversões via Google Ads que iniciaram conversas identificadas no Kommo</div>
+            </div>
+            <div class="chart-badge kommo">Kommo</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart-aproveitamento"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         SEÇÃO 2 — GOOGLE ADS CAMPANHAS
+    ═══════════════════════════════════════════ -->
+    <div class="section" id="google-ads">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Google Ads</h1>
+        </div>
+      </div>
+
+      <!-- FILTRO DE PERÍODO -->
+      <div class="period-filter" id="pf-ga">
+        <span class="pf-label">Período:</span>
+        <div class="pf-select-wrap">
+          <select class="pf-select" id="pf-ga-ini" onchange="applyFilter('ga')">
+          </select>
+          <span class="pf-chevron">▾</span>
+        </div>
+        <div class="pf-select-wrap">
+          <select class="pf-select" id="pf-ga-fim" onchange="applyFilter('ga')">
+          </select>
+          <span class="pf-chevron">▾</span>
+        </div>
+        <button class="pf-btn-ultimo" id="pf-ga-ultimo" onclick="setUltimoMes('ga')">Último Mês</button>
+      </div>
+
+      <div class="section-title">Comparativo por Campanha</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">Investimento por Campanha</div></div>
+          </div>
+          <div class="chart-wrap tall">
+            <canvas id="chart-camp-invest"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">Conversões por Campanha</div></div>
+          </div>
+          <div class="chart-wrap tall">
+            <canvas id="chart-camp-conv"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">CPA por Campanha</div></div>
+            <div class="chart-badge">Menor = melhor</div>
+          </div>
+          <div class="chart-wrap tall">
+            <canvas id="chart-camp-cpa"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">CTR por Campanha</div></div>
+          </div>
+          <div class="chart-wrap tall">
+            <canvas id="chart-camp-ctr"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Tabela Detalhada</div>
+      <div class="table-card">
+        <div class="table-header-row">
+          <div class="table-title">Todas as Campanhas</div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="table-campanhas">
+            <thead>
+              <tr>
+                <th>Campanha</th>
+                <th>Mês</th>
+                <th>Investimento</th>
+                <th>Cliques</th>
+                <th>Impressões</th>
+                <th>CTR</th>
+                <th>CPC</th>
+                <th>Conversões</th>
+                <th>CPA</th>
+                <th>Taxa Conv.</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-campanhas"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         SEÇÃO 3 — O QUE ACONTECEU
+    ═══════════════════════════════════════════ -->
+    <div class="section" id="o-que-aconteceu">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="eyebrow">Análise · Narrativa</div>
+          <h1>O que Aconteceu</h1>
+        </div>
+      </div>
+      <!-- FILTRO DE PERÍODO -->
+      <div class="period-filter" id="pf-oa">
+        <span class="pf-label">Período:</span>
+        <div class="pf-select-wrap">
+          <select class="pf-select" id="pf-oa-ini" onchange="applyFilter('oa')">
+          </select>
+          <span class="pf-chevron">▾</span>
+        </div>
+        <div class="pf-select-wrap">
+          <select class="pf-select" id="pf-oa-fim" onchange="applyFilter('oa')">
+          </select>
+          <span class="pf-chevron">▾</span>
+        </div>
+        <button class="pf-btn-ultimo" id="pf-oa-ultimo" onclick="setUltimoMes('oa')">Último Mês</button>
+      </div>
+      <div class="narrative-grid" id="narrative-aconteceu"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         SEÇÃO 4 — PRÓXIMOS PASSOS
+    ═══════════════════════════════════════════ -->
+    <div class="section" id="proximos-passos">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="eyebrow">Análise · Estratégia</div>
+          <h1>Próximos Passos</h1>
+        </div>
+      </div>
+      <!-- FILTRO DE PERÍODO -->
+      <div class="period-filter" id="pf-pp">
+        <span class="pf-label">Período:</span>
+        <div class="pf-select-wrap">
+          <select class="pf-select" id="pf-pp-ini" onchange="applyFilter('pp')">
+          </select>
+          <span class="pf-chevron">▾</span>
+        </div>
+        <div class="pf-select-wrap">
+          <select class="pf-select" id="pf-pp-fim" onchange="applyFilter('pp')">
+          </select>
+          <span class="pf-chevron">▾</span>
+        </div>
+        <button class="pf-btn-ultimo" id="pf-pp-ultimo" onclick="setUltimoMes('pp')">Último Mês</button>
+      </div>
+      <div class="proximos-grid" id="proximos-grid"></div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DADOS — hardcoded a partir da planilha
+═══════════════════════════════════════════════════════════ */
+const MESES = ['Março/2026', 'Abril/2026', 'Maio/2026'];
+const MESES_SHORT = ['Mar', 'Abr', 'Mai'];
+
+const VISAO = {
+  investimento_total:   [3722.26, 3608.14, 4137.19],
+  google_invest:        [2469.38, 2555.36, 2468.65],
+  meta_invest:          [1252.88, 1255.40, 1668.54],
+  impressoes:           [7235,    7192,    7237],
+  cliques:              [547,     431,     492],
+  ctr:                  [7.56,    5.99,    6.80],
+  cpc:                  [4.30,    5.93,    5.76],
+  conversoes:           [90,      85,      72],
+  taxa_conv:            [16.45,   19.72,   14.63],
+  cpa:                  [26.14,   30.06,   39.34],
+  alteracoes:           [110,     54,      277],
+  alcance:              [45656,   81523,   196062],
+  views_topo:           [62726,   26951,   338942],
+  seguidores:           [47,      473,     510],
+  custo_seguidor:       [26.71,   1.60,    1.82],
+  visitas_perfil:       [708,     1823,    2429],
+  conv_google:          [90,      85,      72],
+  leads_kommo:          [null,    51,      52],
+  diff_funil:           [null,    24,      20],
+  pct_aproveitamento:   [null,    60.0,    72.2],
+  faturamento:          [298247,  284310,  null],
+  leads_total:          [null,    100,     95],
+  leads_trafego:        [null,    51,      52],
+  custo_lead:           [null,    82.82,   79.56],
+  vendas:               [null,    18,      null],
+  fech_trafego:         [null,    12,      null],
+};
+
+const CAMPANHAS = [
+  {camp:'Florianópolis', mes:'Março/2026',  invest:904.89,   clicks:180, imp:2359,  ctr:8.05,  cpc:5.03, conv:32,    cpa:28.28, taxa:19.02},
+  {camp:'São Paulo',     mes:'Março/2026',  invest:672.16,   clicks:170, imp:2221,  ctr:7.78,  cpc:3.95, conv:27,    cpa:24.89, taxa:17.05},
+  {camp:'Institucional', mes:'Março/2026',  invest:236.96,   clicks:81,  imp:1125,  ctr:7.26,  cpc:2.93, conv:10.33, cpa:22.93, taxa:13.65},
+  {camp:'Online',        mes:'Março/2026',  invest:169.45,   clicks:39,  imp:662,   ctr:6.21,  cpc:4.34, conv:4,     cpa:42.36, taxa:9.76},
+  {camp:'Florianópolis', mes:'Abril/2026',  invest:922.79,   clicks:109, imp:1795,  ctr:6.07,  cpc:8.47, conv:12,    cpa:76.90, taxa:11.01},
+  {camp:'São Paulo',     mes:'Abril/2026',  invest:811.97,   clicks:119, imp:2011,  ctr:5.92,  cpc:6.82, conv:28,    cpa:29.00, taxa:23.53},
+  {camp:'Institucional', mes:'Abril/2026',  invest:123.13,   clicks:51,  imp:343,   ctr:14.87, cpc:2.41, conv:17,    cpa:7.24,  taxa:33.33},
+  {camp:'Online',        mes:'Abril/2026',  invest:349.06,   clicks:104, imp:2075,  ctr:5.01,  cpc:3.36, conv:23,    cpa:15.18, taxa:22.12},
+  {camp:'Florianópolis', mes:'Maio/2026',   invest:717.27,   clicks:80,  imp:1137,  ctr:7.04,  cpc:8.97, conv:10,    cpa:71.73, taxa:12.50},
+  {camp:'São Paulo',     mes:'Maio/2026',   invest:1201.66,  clicks:181, imp:2968,  ctr:6.10,  cpc:6.66, conv:25,    cpa:48.07, taxa:13.81},
+  {camp:'Institucional', mes:'Maio/2026',   invest:153.72,   clicks:65,  imp:421,   ctr:15.44, cpc:2.36, conv:10,    cpa:15.37, taxa:15.38},
+  {camp:'Online',        mes:'Maio/2026',   invest:634.01,   clicks:149, imp:2412,  ctr:6.18,  cpc:4.26, conv:27,    cpa:23.48, taxa:18.12},
+];
+
+const ACONTECEU = [
+  {
+    mes: 'Março/2026',
+    google: 'Refinamento estratégico da conta com 110 alterações. Destaque para 414 negativações de palavras-chave. Separação de campanhas presencial/online. Foco em melhorar qualidade do tráfego e reduzir desperdício.',
+    meta: 'Meta Ads atuando como canal de descoberta e tráfego. Início da nova campanha de seguidores (pausada temporariamente). Funil completo ainda não implementado.',
+    outros: 'Elaboração da campanha de seguidores. Formulação do funil de conversão Meta Ads. Copy para nova landing page. Configuração inicial do CRM Kommo.',
+  },
+  {
+    mes: 'Abril/2026',
+    google: 'Campanha online (CPA R$42,36 em março) caiu para R$15,18. CTR caiu de 7,56% para 5,99%. Separação presencial/online mostrou resultado. Florianópolis com conversão cara mas volume alto.',
+    meta: 'Funil existe mas não fecha: TOPO e MEIO com bom volume, FUNDO sem conversões com R$80,73 investidos. Aquisição de seguidores eficiente (R$1,49/seguidor) mas limitada pelo público disponível.',
+    outros: '',
+  },
+  {
+    mes: 'Maio/2026',
+    google: `Em maio, a conta registrou 492 cliques, 7.237 impressões, CTR de 6,80%, CPC médio de R$5,76, 72 conversões e CPA médio de R$39,34. Houve aumento de 14,15% nos cliques e melhora no CTR (5,99% → 6,80%).
+
+Apesar do ganho em volume, o mês apresentou queda nas conversões: 72 contra 85 em abril (−15,29%). A taxa de conversão caiu de 19,72% para 14,63%, elevando o CPA de R$30,06 para R$39,34 (+30,87%).
+
+A conta passou por 277 alterações (vs 54 em abril): ajustes em campanhas, grupos de anúncios, anúncios responsivos, UTMs, segmentações e nomenclaturas.
+
+Melhor equilíbrio: campanha Online (27 conv., CPA R$23,48) e Institucional (CPA R$15,37). Ponto de atenção: Florianópolis com CPA de R$71,73.`,
+    meta: `Mantivemos topo e meio de funil enquanto aguardávamos novo material para o FUNDO. Quando o material ficou pronto, a conta do Instagram sofreu limitação até 15/06 por uma postagem contendo uma caixa de remédios — violação das políticas da Meta sobre remédios controlados.
+
+Nesse cenário, qualquer alteração nas campanhas as teria suspendido.`,
+    outros: 'Entrega da Landing Page e elaboração da estratégia para venda do Livro.',
+  },
+];
+
+const PROXIMOS = [
+  {
+    mes: 'Março/2026',
+    google: 'Avaliar manutenção de Florianópolis e São Paulo. Decidir sobre Jaraguá do Sul. Analisar redução de alcance geográfico por campanha. Avaliar uso de CPA no lugar de maximizar conversões.',
+    meta: 'Implementar funil completo de conversão. Atualizar criativos campanha seguidores. Avaliar estratégia ao final do mês.',
+    obs: '',
+  },
+  {
+    mes: 'Abril/2026',
+    google: 'Aumentar orçamento SP e Online. Desativar Jaraguá do Sul. Aumentar verba campanha Institucional. Investigar e reduzir CPA Florianópolis.',
+    meta: 'Completar funil de aquisição. Aumentar orçamento e expandir segmentação da campanha de seguidores. Avaliar troca de conteúdo.',
+    obs: 'Rastrear oportunidades de forma mais específica no Kommo.',
+  },
+  {
+    mes: 'Maio/2026',
+    google: `Foco: recuperar eficiência de conversão perdida em maio. A conta aumentou cliques e melhorou CTR, mas converteu menos do que em abril.
+
+Prioridade: revisar qualidade dos termos de pesquisa, reforçar negativações e identificar buscas que geram cliques sem intenção real de agendamento.
+
+Aumentar clientes fora do estado e recuperar eficiência da campanha de Florianópolis. CPA de Florianópolis deve ser acompanhado de perto — está muito acima da média da conta.`,
+    meta: 'Completar funil de aquisição com novos vídeos de fundo de funil e um novo formulário não condicional.',
+    obs: '',
+  },
+];
+
+/* ═══════════════════════════════════════════════════════════
+   CHART.JS — defaults globais
+═══════════════════════════════════════════════════════════ */
+Chart.defaults.color = '#8899BB';
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.font.size = 11;
+
+const CHART_COLORS = {
+  google:      '#2E6BE6',
+  meta:        '#818CF8',
+  accent:      '#5EEAD4',
+  gold:        '#E8C97A',
+  flori:       '#2E6BE6',
+  sp:          '#5EEAD4',
+  inst:        '#E8C97A',
+  online:      '#818CF8',
+};
+
+const CAMP_COLORS = {
+  'Florianópolis': '#2E6BE6',
+  'São Paulo':     '#5EEAD4',
+  'Institucional': '#E8C97A',
+  'Online':        '#818CF8',
+};
+
+function makeGradient(ctx, color, alpha1=0.35, alpha2=0.02) {
+  const g = ctx.createLinearGradient(0, 0, 0, 220);
+  g.addColorStop(0, color.replace(')', `,${alpha1})`).replace('rgb', 'rgba'));
+  g.addColorStop(1, color.replace(')', `,${alpha2})`).replace('rgb', 'rgba'));
+  return g;
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+function gradientFill(ctx, hex, a1=0.3, a2=0.02) {
+  const g = ctx.createLinearGradient(0,0,0,240);
+  g.addColorStop(0, `rgba(${hexToRgb(hex)},${a1})`);
+  g.addColorStop(1, `rgba(${hexToRgb(hex)},${a2})`);
+  return g;
+}
+
+const SHARED_OPTS = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: {
+    legend: { labels: { boxWidth: 10, padding: 14, color: '#8899BB' } },
+    tooltip: {
+      backgroundColor: 'rgba(13,27,62,0.95)',
+      borderColor: 'rgba(255,255,255,0.08)',
+      borderWidth: 1,
+      titleColor: '#fff',
+      bodyColor: '#C8D4EE',
+      padding: 10,
+    }
+  },
+  scales: {
+    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6677AA' } },
+    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6677AA' } },
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════
+   ESTADO DO FILTRO
+═══════════════════════════════════════════════════════════ */
+// Índices sobre o array MESES (0=Março, 1=Abril, 2=Maio)
+let filterIni = 0;
+let filterFim = MESES.length - 1;
+
+// Referências dos gráficos para destruição/recriação
+let chartRefs = {};
+
+function getFilteredIndexes() {
+  const idxs = [];
+  for (let i = filterIni; i <= filterFim; i++) idxs.push(i);
+  return idxs;
+}
+
+function filteredSlice(arr) {
+  return getFilteredIndexes().map(i => arr[i] !== undefined ? arr[i] : null);
+}
+
+function filteredLabels() {
+  return getFilteredIndexes().map(i => MESES_SHORT[i]);
+}
+
+// Inicializar selects de todos os filtros
+function initFilters() {
+  ['vg','ga','oa','pp'].forEach(id => {
+    const ini = document.getElementById(`pf-${id}-ini`);
+    const fim = document.getElementById(`pf-${id}-fim`);
+    if (!ini || !fim) return;
+    ini.innerHTML = MESES.map((m,i) =>
+      `<option value="${i}" ${i===filterIni?'selected':''}>${m.replace('/2026','').replace('ç','ç')}</option>`
+    ).join('');
+    fim.innerHTML = MESES.map((m,i) =>
+      `<option value="${i}" ${i===filterFim?'selected':''}>${m.replace('/2026','').replace('ç','ç')}</option>`
+    ).join('');
+  });
+}
+
+function syncSelects() {
+  ['vg','ga','oa','pp'].forEach(id => {
+    const ini = document.getElementById(`pf-${id}-ini`);
+    const fim = document.getElementById(`pf-${id}-fim`);
+    if (ini) ini.value = filterIni;
+    if (fim) fim.value = filterFim;
+    // botão último mês
+    const btn = document.getElementById(`pf-${id}-ultimo`);
+    if (btn) btn.classList.toggle('active', filterIni === MESES.length-1 && filterFim === MESES.length-1);
+  });
+}
+
+function applyFilter(sourceId) {
+  const ini = document.getElementById(`pf-${sourceId}-ini`);
+  const fim = document.getElementById(`pf-${sourceId}-fim`);
+  let i = parseInt(ini.value);
+  let f = parseInt(fim.value);
+  if (i > f) f = i; // garantir ordem
+  filterIni = i;
+  filterFim = f;
+  syncSelects();
+  refreshAll();
+}
+
+function setUltimoMes(sourceId) {
+  filterIni = MESES.length - 1;
+  filterFim = MESES.length - 1;
+  syncSelects();
+  refreshAll();
+}
+
+function refreshAll() {
+  // Destruir todos os gráficos e recriar
+  Object.values(chartRefs).forEach(c => { if (c) c.destroy(); });
+  chartRefs = {};
+  renderKPIs();
+  buildVisaoGeral();
+  // Recriar campanhas se aba estiver ativa (sempre recria)
+  campanhasBuilt = false;
+  if (document.getElementById('google-ads').classList.contains('active')) {
+    buildCampanhasCharts();
+    campanhasBuilt = true;
+  }
+  renderNarrativas();
+  renderProximos();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDERIZAR KPIs
+═══════════════════════════════════════════════════════════ */
+function delta(vals, idx) {
+  if (idx < 1 || vals[idx-1] == null || vals[idx] == null) return null;
+  return ((vals[idx] - vals[idx-1]) / Math.abs(vals[idx-1])) * 100;
+}
+function fmtDelta(v) {
+  if (v == null) return '';
+  const sign = v >= 0 ? '+' : '';
+  return `${sign}${v.toFixed(1)}%`;
+}
+
+function renderKPIs() {
+  const last = MESES.length - 1;
+  const kpis = [
+    { label:'Investimento Total', value:`R$${VISAO.investimento_total[last].toLocaleString('pt-BR',{minimumFractionDigits:2})}`, delta: delta(VISAO.investimento_total, last), cls:'accent-blue' },
+    { label:'Conversões Google', value: VISAO.conversoes[last], delta: delta(VISAO.conversoes, last), cls:'accent-teal' },
+    { label:'CPA Médio Google', value:`R$${VISAO.cpa[last].toFixed(2)}`, delta: delta(VISAO.cpa, last), invert:true },
+    { label:'CTR', value:`${VISAO.ctr[last]}%`, delta: delta(VISAO.ctr, last) },
+    { label:'Alcance Meta', value: VISAO.alcance[last].toLocaleString('pt-BR'), delta: delta(VISAO.alcance, last), cls:'accent-teal' },
+    { label:'Seguidores', value: VISAO.seguidores[last], delta: delta(VISAO.seguidores, last) },
+    { label:'Leads no CRM', value: VISAO.leads_kommo[last], delta: delta(VISAO.leads_kommo, last), cls:'accent-gold' },
+    { label:'Aproveit. Funil', value:`${VISAO.pct_aproveitamento[last]}%`, delta: delta(VISAO.pct_aproveitamento, last) },
+  ];
+
+  const grid = document.getElementById('kpi-visao');
+  grid.innerHTML = kpis.map(k => {
+    const d = k.delta;
+    let dir = 'neutral', sym = '—';
+    if (d != null) {
+      const isGood = k.invert ? d < 0 : d > 0;
+      dir = isGood ? 'up' : 'down';
+      sym = d >= 0 ? '▲' : '▼';
+    }
+    return `
+    <div class="kpi-card ${k.cls||''}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value ?? '—'}</div>
+      ${d != null ? `<div class="kpi-delta ${dir}">${sym} ${fmtDelta(d)} vs mês ant.</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+
+/* ── Helper: 1 mês selecionado? ── */
+function isSingleMonth() { return filterIni === filterFim; }
+
+/* ── Label central para barras de 1 mês ── */
+const barCenterLabel = (fmt) => ({
+  display: true,
+  anchor: 'center',
+  align: 'center',
+  color: '#FFFFFF',
+  font: { family:"'Inter',sans-serif", size: 12, weight:'700' },
+  formatter: fmt || (v => v != null ? String(v) : ''),
+  textShadowColor: 'rgba(0,0,0,0.5)',
+  textShadowBlur: 4,
+});
+
+/* ═══════════════════════════════════════════════════════════
+   GRÁFICOS — VISÃO GERAL
+═══════════════════════════════════════════════════════════ */
+function buildVisaoGeral() {
+
+  // Estilo padrão para labels nas linhas
+  const lineLabel = (fmt) => ({
+    display: true,
+    align: 'top',
+    anchor: 'end',
+    offset: 6,
+    color: '#E2EAF8',
+    font: { family:"'Inter',sans-serif", size: 10.5, weight:'500' },
+    formatter: fmt || (v => v != null ? v : ''),
+    backgroundColor: 'rgba(13,27,62,0.72)',
+    borderRadius: 4,
+    padding: { top:3, bottom:3, left:5, right:5 },
+  });
+
+  // Ocultar datalabels nas barras (só mostrar nas linhas)
+  const noBarLabel = { display: false };
+
+  // ── 1 — Investimento: barras lado a lado + linha de total ──────────────
+  chartRefs['c1'] = new Chart(document.getElementById('chart-investimento'), {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Google Ads',
+          data: filteredSlice(VISAO.google_invest),
+          backgroundColor: '#2E6BE6',
+          borderColor: '#2E6BE6',
+          borderWidth: 0,
+          borderRadius: 6,
+          borderSkipped: false,
+          datalabels: noBarLabel,
+          order: 2,
+        },
+        {
+          type: 'bar',
+          label: 'Meta Ads',
+          data: filteredSlice(VISAO.meta_invest),
+          backgroundColor: '#C084FC',
+          borderColor: '#C084FC',
+          borderWidth: 0,
+          borderRadius: 6,
+          borderSkipped: false,
+          datalabels: noBarLabel,
+          order: 2,
+        },
+        {
+          type: 'line',
+          label: 'Total',
+          data: filteredSlice(VISAO.investimento_total),
+          borderColor: '#5EEAD4',
+          backgroundColor: 'rgba(94,234,212,0.07)',
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#5EEAD4',
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          borderWidth: 2.5,
+          order: 1,
+          datalabels: lineLabel(v => v != null ? `R$${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}` : ''),
+        },
+      ]
+    },
+    options: {
+      ...SHARED_OPTS,
+      plugins: {
+        ...SHARED_OPTS.plugins,
+        legend: { labels: { boxWidth:10, padding:14, color:'#8899BB' } },
+      },
+      scales: {
+        x: { ...SHARED_OPTS.scales.x },
+        y: { ...SHARED_OPTS.scales.y, ticks: { color:'#6677AA', callback: v => `R$${(v/1000).toFixed(1)}k` } }
+      }
+    }
+  });
+
+  // ── 2a — Conversões: barra+linha (multi) ou barra puro (1 mês) ──────────
+  chartRefs['c2'] = new Chart(document.getElementById('chart-conversoes'), isSingleMonth() ? {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [{
+        label: 'Conversões',
+        data: filteredSlice(VISAO.conversoes),
+        backgroundColor: CHART_COLORS.google,
+        borderRadius: 8,
+        datalabels: barCenterLabel(v => v != null ? String(v) : ''),
+      }]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 20 } },
+      plugins: { ...SHARED_OPTS.plugins, legend:{ display:false } },
+      scales: { x: SHARED_OPTS.scales.x, y: { ...SHARED_OPTS.scales.y, ticks:{ color:'#6677AA' }, suggestedMax: 105 } }
+    }
+  } : {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [
+        { type:'bar', label:'Conversões', data: filteredSlice(VISAO.conversoes), backgroundColor: `rgba(${hexToRgb(CHART_COLORS.google)},0.55)`, borderRadius:6, datalabels: noBarLabel, order:2 },
+        { type:'line', label:'Conversões', data: filteredSlice(VISAO.conversoes), borderColor: CHART_COLORS.accent, backgroundColor:'transparent', tension:0.4, pointBackgroundColor: CHART_COLORS.accent, pointRadius:5, borderWidth:2.5, order:1, datalabels: lineLabel(v => v != null ? String(v) : '') },
+      ]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 40 } },
+      plugins: { ...SHARED_OPTS.plugins, legend:{ display:false } },
+      scales: { x: SHARED_OPTS.scales.x, y: { ...SHARED_OPTS.scales.y, ticks:{ color:'#6677AA' }, suggestedMax: 105 } }
+    }
+  });
+
+  // ── 2b — CPA Médio: barra puro (1 mês) ou barra+linha (multi) ───────────
+  chartRefs['c3'] = new Chart(document.getElementById('chart-cpa'), isSingleMonth() ? {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [{
+        label: 'CPA (R$)',
+        data: filteredSlice(VISAO.cpa),
+        backgroundColor: CHART_COLORS.gold,
+        borderRadius: 8,
+        datalabels: barCenterLabel(v => v != null ? `R$${v.toFixed(2)}` : ''),
+      }]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 20 } },
+      plugins: { ...SHARED_OPTS.plugins, legend:{ display:false } },
+      scales: { x: SHARED_OPTS.scales.x, y: { ...SHARED_OPTS.scales.y, ticks:{ color:'#6677AA', callback: v=>`R$${v}` }, suggestedMax: 50 } }
+    }
+  } : {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [
+        { type:'bar', label:'CPA (R$)', data: filteredSlice(VISAO.cpa), backgroundColor: `rgba(${hexToRgb(CHART_COLORS.gold)},0.45)`, borderRadius:6, datalabels: noBarLabel, order:2 },
+        { type:'line', label:'CPA (R$)', data: filteredSlice(VISAO.cpa), borderColor: CHART_COLORS.gold, backgroundColor:'transparent', tension:0.4, pointBackgroundColor: CHART_COLORS.gold, pointRadius:5, borderWidth:2.5, order:1, datalabels: lineLabel(v => v != null ? `R$${v.toFixed(2)}` : '') },
+      ]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 40 } },
+      plugins: { ...SHARED_OPTS.plugins, legend:{ display:false } },
+      scales: { x: SHARED_OPTS.scales.x, y: { ...SHARED_OPTS.scales.y, ticks:{ color:'#6677AA', callback: v=>`R$${v}` }, suggestedMax: 50 } }
+    }
+  });
+
+  // ── 3 — CTR + Taxa de conversão (linhas com labels) ───────────────────
+  // ── 3 — CTR & Taxa de conversão: linhas (multi) ou barras (1 mês) ────────
+  chartRefs['c4'] = new Chart(document.getElementById('chart-ctr-conv'), isSingleMonth() ? {
+    type: 'bar',
+    data: {
+      labels: ['CTR (%)', 'Taxa Conv. (%)'],
+      datasets: [{
+        data: [filteredSlice(VISAO.ctr)[0], filteredSlice(VISAO.taxa_conv)[0]],
+        backgroundColor: [CHART_COLORS.accent, CHART_COLORS.gold],
+        borderRadius: 8,
+        datalabels: barCenterLabel(v => v != null ? `${v}%` : ''),
+      }]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 20 } },
+      plugins: { ...SHARED_OPTS.plugins, legend:{ display:false } },
+      scales: { x: SHARED_OPTS.scales.x, y: { ...SHARED_OPTS.scales.y, ticks:{ color:'#6677AA', callback:v=>`${v}%` }, suggestedMax: 26 } }
+    }
+  } : {
+    type: 'line',
+    data: {
+      labels: filteredLabels(),
+      datasets: [
+        { label:'CTR (%)', data: filteredSlice(VISAO.ctr), borderColor: CHART_COLORS.accent, backgroundColor:`rgba(${hexToRgb(CHART_COLORS.accent)},0.08)`, fill:true, tension:0.4, pointBackgroundColor: CHART_COLORS.accent, pointRadius:5, datalabels: lineLabel(v => v != null ? `${v}%` : '') },
+        { label:'Taxa Conv. (%)', data: filteredSlice(VISAO.taxa_conv), borderColor: CHART_COLORS.gold, backgroundColor:`rgba(${hexToRgb(CHART_COLORS.gold)},0.08)`, fill:true, tension:0.4, pointBackgroundColor: CHART_COLORS.gold, pointRadius:5, datalabels: lineLabel(v => v != null ? `${v}%` : '') },
+      ]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 40 } },
+      plugins: { ...SHARED_OPTS.plugins },
+      scales: { x: SHARED_OPTS.scales.x, y: { ...SHARED_OPTS.scales.y, ticks:{color:'#6677AA', callback:v=>`${v}%`}, suggestedMax: 26 } }
+    }
+  });
+
+  // ── 4 — Cliques & Impressões (linhas com labels) ──────────────────────
+  // ── 4 — Cliques & Impressões: linhas (multi) ou barras (1 mês) ──────────
+  chartRefs['c5'] = new Chart(document.getElementById('chart-clicks'), isSingleMonth() ? {
+    type: 'bar',
+    data: {
+      labels: ['Cliques', 'Impressões'],
+      datasets: [{
+        data: [filteredSlice(VISAO.cliques)[0], filteredSlice(VISAO.impressoes)[0]],
+        backgroundColor: [CHART_COLORS.google, CHART_COLORS.meta],
+        borderRadius: 8,
+        datalabels: barCenterLabel(v => v != null ? v.toLocaleString('pt-BR') : ''),
+      }]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 20 } },
+      plugins: { ...SHARED_OPTS.plugins, legend:{ display:false } },
+      scales: { x: SHARED_OPTS.scales.x, y: { ...SHARED_OPTS.scales.y, ticks:{ color:'#6677AA' }, suggestedMax: 9000 } }
+    }
+  } : {
+    type: 'line',
+    data: {
+      labels: filteredLabels(),
+      datasets: [
+        { label:'Cliques', data: filteredSlice(VISAO.cliques), borderColor: CHART_COLORS.google, backgroundColor:`rgba(${hexToRgb(CHART_COLORS.google)},0.1)`, fill:true, tension:0.4, pointBackgroundColor: CHART_COLORS.google, pointRadius:5, yAxisID:'y', datalabels: lineLabel(v => v != null ? String(v) : '') },
+        { label:'Impressões', data: filteredSlice(VISAO.impressoes), borderColor: CHART_COLORS.meta, backgroundColor:`rgba(${hexToRgb(CHART_COLORS.meta)},0.06)`, fill:true, tension:0.4, pointBackgroundColor: CHART_COLORS.meta, pointRadius:5, yAxisID:'y1', borderDash:[4,3], datalabels: lineLabel(v => v != null ? v.toLocaleString('pt-BR') : '') },
+      ]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 40 } },
+      plugins: { ...SHARED_OPTS.plugins },
+      scales: {
+        x: SHARED_OPTS.scales.x,
+        y:  { ...SHARED_OPTS.scales.y, position:'left',  ticks:{color:'#6677AA'}, suggestedMax: 700 },
+        y1: { ...SHARED_OPTS.scales.y, position:'right', grid:{display:false}, ticks:{color:'#6677AA'}, suggestedMax: 9000 }
+      }
+    }
+  });
+
+  // ── 5 — Alterações (barras, sem label) ────────────────────────────────
+  chartRefs['c6'] = new Chart(document.getElementById('chart-alteracoes'), {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [{
+        label:'Alterações',
+        data: filteredSlice(VISAO.alteracoes),
+        backgroundColor: [
+          `rgba(${hexToRgb(CHART_COLORS.google)},0.6)`,
+          `rgba(${hexToRgb(CHART_COLORS.gold)},0.6)`,
+          `rgba(${hexToRgb(CHART_COLORS.accent)},0.7)`
+        ],
+        borderRadius: 6,
+        datalabels: {
+          display: true,
+          anchor: 'end', align: 'top',
+          color: '#E2EAF8', font: { size:11, weight:'600' },
+          formatter: v => v != null ? String(v) : '',
+        },
+      }]
+    },
+    options: { ...SHARED_OPTS, layout: { padding: { top: 36 } }, plugins: { ...SHARED_OPTS.plugins, legend:{display:false} } }
+  });
+
+  // ── 6 — Alcance Meta (barras, sem label) ─────────────────────────────
+  chartRefs['c7'] = new Chart(document.getElementById('chart-alcance'), {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [{
+        label:'Alcance',
+        data: filteredSlice(VISAO.alcance),
+        backgroundColor: `rgba(${hexToRgb(CHART_COLORS.accent)},0.65)`,
+        borderRadius: 6,
+        datalabels: {
+          display: true, anchor:'end', align:'top',
+          color:'#E2EAF8', font:{size:10, weight:'600'},
+          formatter: v => v != null ? `${(v/1000).toFixed(1)}k` : '',
+        },
+      }]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 40 } },
+      plugins:{ ...SHARED_OPTS.plugins, legend:{display:false} },
+      scales:{
+        x: SHARED_OPTS.scales.x,
+        y: { ...SHARED_OPTS.scales.y, ticks:{color:'#6677AA', callback:v=>`${(v/1000).toFixed(0)}k`}, suggestedMax: 240000 }
+      }
+    }
+  });
+
+  // ── 7 — Seguidores + Custo por Seguidor (linha na frente) ─────────────
+  chartRefs['c8'] = new Chart(document.getElementById('chart-seguidores'), {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Seguidores',
+          data: filteredSlice(VISAO.seguidores),
+          backgroundColor: `rgba(${hexToRgb(CHART_COLORS.meta)},0.55)`,
+          borderRadius: 6,
+          yAxisID: 'y',
+          datalabels: noBarLabel,
+          order: 2,
+        },
+        {
+          type: 'line',
+          label: 'Custo/Seguidor (R$)',
+          data: filteredSlice(VISAO.custo_seguidor),
+          borderColor: CHART_COLORS.gold,
+          backgroundColor: 'transparent',
+          yAxisID: 'y1',
+          tension: 0.4,
+          pointBackgroundColor: CHART_COLORS.gold,
+          pointRadius: 5,
+          borderWidth: 2.5,
+          order: 1,
+          datalabels: lineLabel(v => v != null ? `R$${v.toFixed(2)}` : ''),
+        },
+      ]
+    },
+    options: {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 40 } },
+      plugins: { ...SHARED_OPTS.plugins },
+      scales: {
+        x: SHARED_OPTS.scales.x,
+        y:  { ...SHARED_OPTS.scales.y, position:'left',  ticks:{color:'#6677AA'}, suggestedMax: 600 },
+        y1: { ...SHARED_OPTS.scales.y, position:'right', grid:{display:false}, ticks:{color:'#6677AA',callback:v=>`R$${v}`}, suggestedMax: 35 }
+      }
+    }
+  });
+
+  // ── 8 — Funil Google → Kommo (barras agrupadas) ───────────────────────
+  chartRefs['c9'] = new Chart(document.getElementById('chart-funil'), {
+    type: 'bar',
+    data: {
+      labels: filteredLabels(),
+      datasets: [
+        {
+          label:'Conversões Google',
+          data: filteredSlice(VISAO.conv_google),
+          backgroundColor: `rgba(${hexToRgb(CHART_COLORS.google)},0.7)`,
+          borderRadius: 6,
+          datalabels: {
+            display: true, anchor:'end', align:'top', offset:4,
+            color:'#E2EAF8', font:{size:11,weight:'600'},
+            formatter: v => v != null ? String(v) : '',
+            backgroundColor:'rgba(13,27,62,0.7)', borderRadius:4,
+            padding:{top:2,bottom:2,left:5,right:5},
+          },
+        },
+        {
+          label:'Leads no Kommo',
+          data: filteredSlice(VISAO.leads_kommo),
+          backgroundColor: `rgba(${hexToRgb(CHART_COLORS.accent)},0.65)`,
+          borderRadius: 6,
+          datalabels: {
+            display: true, anchor:'end', align:'top', offset:4,
+            color:'#E2EAF8', font:{size:11,weight:'600'},
+            formatter: v => v != null ? String(v) : '',
+            backgroundColor:'rgba(13,27,62,0.7)', borderRadius:4,
+            padding:{top:2,bottom:2,left:5,right:5},
+          },
+        },
+      ]
+    },
+    options: { ...SHARED_OPTS, layout:{ padding:{ top:36 } } }
+  });
+
+  // ── 9 — % Conversões Google → Kommo (linha com labels e meses) ────────
+  chartRefs['c10'] = new Chart(document.getElementById('chart-aproveitamento'), {
+    type: 'line',
+    data: {
+      labels: filteredLabels(),
+      datasets: [{
+        data: filteredSlice(VISAO.pct_aproveitamento),
+        borderColor: CHART_COLORS.accent,
+        backgroundColor: `rgba(${hexToRgb(CHART_COLORS.accent)},0.1)`,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: CHART_COLORS.accent,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        borderWidth: 2.5,
+        datalabels: {
+          display: true,
+          align: 'top',
+          anchor: 'end',
+          offset: 6,
+          color: '#E2EAF8',
+          font: { family:"'Inter',sans-serif", size: 12, weight:'600' },
+          formatter: (v, ctx) => {
+            const mes = MESES_SHORT[ctx.dataIndex];
+            return v != null ? `${mes}\n${v}%` : '';
+          },
+          backgroundColor: 'rgba(13,27,62,0.8)',
+          borderRadius: 5,
+          padding: { top:4, bottom:4, left:7, right:7 },
+          textAlign: 'center',
+        },
+      }]
+    },
+    options: {
+      ...SHARED_OPTS,
+      plugins:{
+        ...SHARED_OPTS.plugins,
+        legend:{ display:false },
+      },
+      scales:{
+        x: SHARED_OPTS.scales.x,
+        y: { ...SHARED_OPTS.scales.y, min:0, max:100, ticks:{color:'#6677AA',callback:v=>`${v}%`} }
+      },
+      layout: { padding: { top: 36 } }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GRÁFICOS & TABELA — GOOGLE ADS CAMPANHAS (temporal por linha)
+═══════════════════════════════════════════════════════════ */
+let chartCampInvest, chartCampConv, chartCampCpa, chartCampCtr;
+
+// Campanhas únicas sempre na mesma ordem
+const CAMP_NAMES = ['Florianópolis', 'São Paulo', 'Institucional', 'Online'];
+
+// Busca o valor de uma métrica para uma campanha num mês específico
+function campVal(campName, mesLabel, key) {
+  const row = CAMPANHAS.find(c => c.camp === campName && c.mes === mesLabel);
+  return row ? row[key] : null;
+}
+
+// Retorna dataset de linha por campanha para uma métrica
+function campDatasets(key, fmtLabel) {
+  const mesesAtivos = getFilteredIndexes().map(i => MESES[i]);
+  return CAMP_NAMES.map(name => {
+    const color = CAMP_COLORS[name] || '#2E6BE6';
+    const data  = mesesAtivos.map(m => campVal(name, m, key));
+    return {
+      label: name,
+      data,
+      borderColor: color,
+      backgroundColor: `rgba(${hexToRgb(color)},0.08)`,
+      fill: false,
+      tension: 0.4,
+      pointBackgroundColor: color,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      borderWidth: 2.5,
+      datalabels: {
+        display: true,
+        align: 'top', anchor: 'end', offset: 5,
+        color: '#C8D4EE',
+        font: { family:"'Inter',sans-serif", size: 10, weight:'500' },
+        backgroundColor: 'rgba(13,27,62,0.65)',
+        borderRadius: 4,
+        padding: { top:2, bottom:2, left:4, right:4 },
+        formatter: fmtLabel || (v => v != null ? String(v) : ''),
+      },
+    };
+  });
+}
+
+function lineChartOpts(yFmt, suggestedMax) {
+  return {
+    ...SHARED_OPTS,
+    layout: { padding: { top: 36 } },
+    plugins: { ...SHARED_OPTS.plugins, legend: { labels: { boxWidth:10, padding:12, color:'#8899BB' } } },
+    scales: {
+      x: SHARED_OPTS.scales.x,
+      y: {
+        ...SHARED_OPTS.scales.y,
+        ticks: { color:'#6677AA', callback: yFmt || (v => v) },
+        suggestedMax: suggestedMax || undefined,
+      }
+    }
+  };
+}
+
+function buildCampanhasCharts() {
+  const mesesAtivos = getFilteredIndexes().map(i => MESES[i]);
+  const labels = mesesAtivos.map(m => m.replace('/2026',''));
+  const single = isSingleMonth();
+
+  const destroy = c => { if(c) c.destroy(); };
+  destroy(chartCampInvest); destroy(chartCampConv);
+  destroy(chartCampCpa);    destroy(chartCampCtr);
+
+  // Modo 1 mês: barras verticais por campanha, dado no centro
+  function singleBarDatasets(key, fmtFn) {
+    return [{
+      label: key,
+      data: CAMP_NAMES.map(name => campVal(name, mesesAtivos[0], key)),
+      backgroundColor: CAMP_NAMES.map(name => CAMP_COLORS[name] || '#2E6BE6'),
+      borderRadius: 8,
+      datalabels: {
+        display: true,
+        anchor: 'center', align: 'center',
+        color: '#FFFFFF',
+        font: { family:"'Inter',sans-serif", size: 11, weight:'700' },
+        formatter: fmtFn || (v => v != null ? String(v) : ''),
+        textShadowColor: 'rgba(0,0,0,0.4)', textShadowBlur: 3,
+      },
+    }];
+  }
+
+  function singleBarOpts(yFmt, yMax) {
+    return {
+      ...SHARED_OPTS,
+      layout: { padding: { top: 20 } },
+      plugins: {
+        ...SHARED_OPTS.plugins,
+        legend: { display: false },
+      },
+      scales: {
+        x: { ...SHARED_OPTS.scales.x, ticks: { color: '#8899BB', font:{ size:10 } } },
+        y: { ...SHARED_OPTS.scales.y, ticks: { color:'#6677AA', callback: yFmt || (v=>v) }, suggestedMax: yMax },
+      }
+    };
+  }
+
+  // ── labels para o eixo X no modo barra única: nomes das campanhas ──
+  const singleLabels = CAMP_NAMES;
+
+  chartCampInvest = new Chart(document.getElementById('chart-camp-invest'), single ? {
+    type: 'bar',
+    data: { labels: singleLabels, datasets: singleBarDatasets('invest', v => v != null ? `R$${v.toLocaleString('pt-BR',{minimumFractionDigits:0})}` : '') },
+    options: singleBarOpts(v => `R$${v}`)
+  } : {
+    type: 'line',
+    data: { labels, datasets: campDatasets('invest', v => v != null ? `R$${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '') },
+    options: lineChartOpts(v => `R$${v}`)
+  });
+
+  chartCampConv = new Chart(document.getElementById('chart-camp-conv'), single ? {
+    type: 'bar',
+    data: { labels: singleLabels, datasets: singleBarDatasets('conv', v => v != null ? String(v) : '') },
+    options: singleBarOpts()
+  } : {
+    type: 'line',
+    data: { labels, datasets: campDatasets('conv', v => v != null ? String(v) : '') },
+    options: lineChartOpts()
+  });
+
+  chartCampCpa = new Chart(document.getElementById('chart-camp-cpa'), single ? {
+    type: 'bar',
+    data: { labels: singleLabels, datasets: singleBarDatasets('cpa', v => v != null ? `R$${v.toFixed(2)}` : '') },
+    options: singleBarOpts(v => `R$${v}`)
+  } : {
+    type: 'line',
+    data: { labels, datasets: campDatasets('cpa', v => v != null ? `R$${v.toFixed(2)}` : '') },
+    options: lineChartOpts(v => `R$${v}`)
+  });
+
+  chartCampCtr = new Chart(document.getElementById('chart-camp-ctr'), single ? {
+    type: 'bar',
+    data: { labels: singleLabels, datasets: singleBarDatasets('ctr', v => v != null ? `${v}%` : '') },
+    options: singleBarOpts(v => `${v}%`)
+  } : {
+    type: 'line',
+    data: { labels, datasets: campDatasets('ctr', v => v != null ? `${v}%` : '') },
+    options: lineChartOpts(v => `${v}%`)
+  });
+
+  // Tabela — zebra por grupo de mês
+  const allData = CAMPANHAS.filter(c => mesesAtivos.includes(c.mes));
+  const tbody = document.getElementById('tbody-campanhas');
+  let mesGroupIdx = -1;
+  let lastMes = null;
+  tbody.innerHTML = allData.map(c => {
+    const isFirstOfMes = c.mes !== lastMes;
+    if (isFirstOfMes) { mesGroupIdx++; lastMes = c.mes; }
+    const groupClass = mesGroupIdx % 2 === 0 ? 'mes-group-even' : 'mes-group-odd';
+    const firstClass = isFirstOfMes ? ' mes-group-first' : '';
+    const col = CAMP_COLORS[c.camp] || '#fff';
+    const cpaClass = c.cpa > 40 ? 'pill red' : c.cpa < 20 ? 'pill green' : 'pill blue';
+    const ctrClass = c.ctr > 10 ? 'pill green' : c.ctr < 6 ? 'pill red' : 'pill blue';
+    return `<tr class="${groupClass}${firstClass}">
+      <td><div class="camp-name"><span class="camp-dot" style="background:${col}"></span>${c.camp}</div></td>
+      <td style="text-align:left">${c.mes}</td>
+      <td>R$${c.invest.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td>${c.clicks.toLocaleString('pt-BR')}</td>
+      <td>${c.imp.toLocaleString('pt-BR')}</td>
+      <td><span class="${ctrClass}">${c.ctr}%</span></td>
+      <td>R$${c.cpc.toFixed(2)}</td>
+      <td>${c.conv}</td>
+      <td><span class="${cpaClass}">R$${c.cpa.toFixed(2)}</span></td>
+      <td>${c.taxa}%</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NARRATIVAS
+═══════════════════════════════════════════════════════════ */
+function renderNarrativas() {
+  const container = document.getElementById('narrative-aconteceu');
+  const filtered = ACONTECEU.filter(item => {
+    const idx = MESES.indexOf(item.mes);
+    return idx >= filterIni && idx <= filterFim;
+  });
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado para o período selecionado.</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(item => `
+    <div class="narrative-card">
+      <div class="narrative-card-header">
+        <div class="narrative-mes">${item.mes}</div>
+        <h3>Análise do Período</h3>
+      </div>
+      <div class="narrative-card-body">
+        <div class="narrative-block">
+          <div class="narrative-block-title">Google Ads</div>
+          <div class="narrative-text">${item.google || '<span class="empty-narrative">—</span>'}</div>
+        </div>
+        <div class="narrative-block">
+          <div class="narrative-block-title meta">Meta Ads</div>
+          <div class="narrative-text">${item.meta || '<span class="empty-narrative">—</span>'}</div>
+        </div>
+        ${item.outros ? `
+        <div class="narrative-block">
+          <div class="narrative-block-title other">Outras Ações</div>
+          <div class="narrative-text">${item.outros}</div>
+        </div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderProximos() {
+  const container = document.getElementById('proximos-grid');
+  const filtered = PROXIMOS.filter(item => {
+    const idx = MESES.indexOf(item.mes);
+    return idx >= filterIni && idx <= filterFim;
+  });
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado para o período selecionado.</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(item => `
+    <div class="proximo-card">
+      <div class="proximo-header">
+        <div class="proximo-mes">${item.mes}</div>
+        <h3>Plano de Ação</h3>
+      </div>
+      <div class="proximo-body">
+        <div class="proximo-block">
+          <div class="proximo-block-title google">Google Ads</div>
+          <div class="proximo-text">${item.google}</div>
+        </div>
+        <div class="proximo-block">
+          <div class="proximo-block-title meta">Meta Ads</div>
+          <div class="proximo-text">${item.meta}</div>
+        </div>
+        ${item.obs ? `
+        <div class="proximo-block">
+          <div class="proximo-block-title obs">Observações</div>
+          <div class="proximo-text">${item.obs}</div>
+        </div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAVEGAÇÃO
+═══════════════════════════════════════════════════════════ */
+let campanhasBuilt = false;
+function showSection(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+
+  if (id === 'google-ads' && !campanhasBuilt) {
+    buildCampanhasCharts();
+    campanhasBuilt = true;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  Chart.register(ChartDataLabels);
+  initFilters();
+  syncSelects();
+  renderKPIs();
+  buildVisaoGeral();
+  renderNarrativas();
+  renderProximos();
+});
+
+/* ── SIDEBAR MOBILE ── */
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('visible');
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('visible');
+}
+// Close sidebar after nav click on mobile
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      if (window.innerWidth <= 768) closeSidebar();
+    });
+  });
+});
+
+/* ── LOGIN ── */
+const USERS = {
+  'teodoro':  '2026',
+  'fernanda': '2026',
+};
+
+function doLogin() {
+  const user = document.getElementById('login-user').value.trim().toLowerCase();
+  const pass = document.getElementById('login-pass').value;
+  const err  = document.getElementById('login-error');
+
+  if (USERS[user] && USERS[user] === pass) {
+    err.classList.remove('visible');
+    const overlay = document.getElementById('login-overlay');
+    overlay.classList.add('hiding');
+    setTimeout(() => overlay.remove(), 520);
+  } else {
+    err.classList.add('visible');
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+  }
+}
+
+// Enter para submeter
+document.addEventListener('DOMContentLoaded', () => {
+  ['login-user','login-pass'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  });
+  // Foco automático no campo usuário
+  const u = document.getElementById('login-user');
+  if (u) setTimeout(() => u.focus(), 200);
+});
+
+</script>
+</body>
+</html>
