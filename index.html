@@ -311,14 +311,95 @@ const CSV_URLS = {
 };
 
 /* ════════════════════════════════════════════════════════════
-   ESTADO GLOBAL — preenchido pelo parse dos CSVs
+   DADOS BASE — usados imediatamente ao carregar
+   O fetch do Google Sheets atualiza por cima quando concluir
 ════════════════════════════════════════════════════════════ */
-let MESES = [];
-let MESES_SHORT = [];
-let VISAO = {};
-let CAMPANHAS = [];
-let ACONTECEU = [];
-let PROXIMOS  = [];
+let MESES       = ['Março/2026','Abril/2026','Maio/2026'];
+let MESES_SHORT = ['Mar','Abr','Mai'];
+
+let VISAO = {
+  investimento_total: [3722.26, 3608.14, 4137.19],
+  google_invest:      [2469.38, 2555.36, 2468.65],
+  meta_invest:        [1252.88, 1255.40, 1668.54],
+  impressoes:         [7235,    7192,    7237],
+  cliques:            [547,     431,     492],
+  ctr:                [7.56,    5.99,    6.80],
+  cpc:                [4.30,    5.93,    5.76],
+  conversoes:         [90,      85,      72],
+  taxa_conv:          [16.45,   19.72,   14.63],
+  cpa:                [26.14,   30.06,   39.34],
+  alteracoes:         [110,     54,      277],
+  alcance:            [45656,   81523,   196062],
+  views_topo:         [62726,   26951,   338942],
+  seguidores:         [47,      473,     510],
+  custo_seguidor:     [26.71,   1.60,    1.82],
+  visitas_perfil:     [708,     1823,    2429],
+  conv_google:        [90,      85,      72],
+  leads_kommo:        [null,    51,      52],
+  diff_funil:         [null,    24,      20],
+  pct_aproveitamento: [null,    60.0,    72.2],
+  faturamento:        [298247,  284310,  null],
+  leads_total:        [null,    100,     95],
+  leads_trafego:      [null,    51,      52],
+  custo_lead:         [null,    82.82,   79.56],
+  vendas:             [null,    18,      null],
+  fech_trafego:       [null,    12,      null],
+};
+
+let CAMPANHAS = [
+  {camp:'Florianópolis',mes:'Março/2026',  invest:904.89,  clicks:180,imp:2359, ctr:8.05, cpc:5.03, conv:32,   cpa:28.28,taxa:19.02},
+  {camp:'São Paulo',    mes:'Março/2026',  invest:672.16,  clicks:170,imp:2221, ctr:7.78, cpc:3.95, conv:27,   cpa:24.89,taxa:17.05},
+  {camp:'Institucional',mes:'Março/2026',  invest:236.96,  clicks:81, imp:1125, ctr:7.26, cpc:2.93, conv:10.33,cpa:22.93,taxa:13.65},
+  {camp:'Online',       mes:'Março/2026',  invest:169.45,  clicks:39, imp:662,  ctr:6.21, cpc:4.34, conv:4,    cpa:42.36,taxa:9.76},
+  {camp:'Florianópolis',mes:'Abril/2026',  invest:922.79,  clicks:109,imp:1795, ctr:6.07, cpc:8.47, conv:12,   cpa:76.90,taxa:11.01},
+  {camp:'São Paulo',    mes:'Abril/2026',  invest:811.97,  clicks:119,imp:2011, ctr:5.92, cpc:6.82, conv:28,   cpa:29.00,taxa:23.53},
+  {camp:'Institucional',mes:'Abril/2026',  invest:123.13,  clicks:51, imp:343,  ctr:14.87,cpc:2.41, conv:17,   cpa:7.24, taxa:33.33},
+  {camp:'Online',       mes:'Abril/2026',  invest:349.06,  clicks:104,imp:2075, ctr:5.01, cpc:3.36, conv:23,   cpa:15.18,taxa:22.12},
+  {camp:'Florianópolis',mes:'Maio/2026',   invest:717.27,  clicks:80, imp:1137, ctr:7.04, cpc:8.97, conv:10,   cpa:71.73,taxa:12.50},
+  {camp:'São Paulo',    mes:'Maio/2026',   invest:1201.66, clicks:181,imp:2968, ctr:6.10, cpc:6.66, conv:25,   cpa:48.07,taxa:13.81},
+  {camp:'Institucional',mes:'Maio/2026',   invest:153.72,  clicks:65, imp:421,  ctr:15.44,cpc:2.36, conv:10,   cpa:15.37,taxa:15.38},
+  {camp:'Online',       mes:'Maio/2026',   invest:634.01,  clicks:149,imp:2412, ctr:6.18, cpc:4.26, conv:27,   cpa:23.48,taxa:18.12},
+];
+
+let ACONTECEU = [
+  { mes:'Março/2026',
+    google:'Refinamento estratégico da conta com 110 alterações. Destaque para 414 negativações de palavras-chave. Separação de campanhas presencial/online. Foco em melhorar qualidade do tráfego e reduzir desperdício.',
+    meta:'Meta Ads atuando como canal de descoberta e tráfego. Início da nova campanha de seguidores (pausada temporariamente). Funil completo ainda não implementado.',
+    outros:'Elaboração da campanha de seguidores. Formulação do funil de conversão Meta Ads. Copy para nova landing page. Configuração inicial do CRM Kommo.' },
+  { mes:'Abril/2026',
+    google:'Campanha online (CPA R$42,36 em março) caiu para R$15,18. CTR caiu de 7,56% para 5,99%. Separação presencial/online mostrou resultado. Florianópolis com conversão cara mas volume alto.',
+    meta:'Funil existe mas não fecha: TOPO e MEIO com bom volume, FUNDO sem conversões com R$80,73 investidos. Aquisição de seguidores eficiente (R$1,49/seguidor) mas limitada pelo público disponível.',
+    outros:'' },
+  { mes:'Maio/2026',
+    google:`Em maio, a conta registrou 492 cliques, 7.237 impressões, CTR de 6,80%, CPC médio de R$5,76, 72 conversões e CPA médio de R$39,34. Houve aumento de 14,15% nos cliques e melhora no CTR (5,99% → 6,80%).
+
+Apesar do ganho em volume, o mês apresentou queda nas conversões: 72 contra 85 em abril (−15,29%). A taxa de conversão caiu de 19,72% para 14,63%, elevando o CPA de R$30,06 para R$39,34 (+30,87%).
+
+A conta passou por 277 alterações (vs 54 em abril). Melhor equilíbrio: Online (27 conv., CPA R$23,48) e Institucional (CPA R$15,37). Ponto de atenção: Florianópolis com CPA de R$71,73.`,
+    meta:`Mantivemos topo e meio de funil enquanto aguardávamos novo material para o FUNDO. A conta do Instagram sofreu limitação até 15/06 por uma postagem contendo uma caixa de remédios — violação das políticas da Meta sobre remédios controlados.
+
+Nesse cenário, qualquer alteração nas campanhas as teria suspendido.`,
+    outros:'Entrega da Landing Page e elaboração da estratégia para venda do Livro.' },
+];
+
+let PROXIMOS = [
+  { mes:'Março/2026',
+    google:'Avaliar manutenção de Florianópolis e São Paulo. Decidir sobre Jaraguá do Sul. Analisar redução de alcance geográfico por campanha. Avaliar uso de CPA no lugar de maximizar conversões.',
+    meta:'Implementar funil completo de conversão. Atualizar criativos campanha seguidores. Avaliar estratégia ao final do mês.',
+    obs:'' },
+  { mes:'Abril/2026',
+    google:'Aumentar orçamento SP e Online. Desativar Jaraguá do Sul. Aumentar verba campanha Institucional. Investigar e reduzir CPA Florianópolis.',
+    meta:'Completar funil de aquisição. Aumentar orçamento e expandir segmentação da campanha de seguidores. Avaliar troca de conteúdo.',
+    obs:'Rastrear oportunidades de forma mais específica no Kommo.' },
+  { mes:'Maio/2026',
+    google:`Foco: recuperar eficiência de conversão perdida em maio. A conta aumentou cliques e melhorou CTR, mas converteu menos do que em abril.
+
+Prioridade: revisar qualidade dos termos de pesquisa, reforçar negativações e identificar buscas que geram cliques sem intenção real de agendamento.
+
+Aumentar clientes fora do estado e recuperar eficiência da campanha de Florianópolis. CPA de Florianópolis deve ser acompanhado de perto — está muito acima da média da conta.`,
+    meta:'Completar funil de aquisição com novos vídeos de fundo de funil e um novo formulário não condicional.',
+    obs:'' },
+];
 
 /* ════════════════════════════════════════════════════════════
    HELPERS DE PARSE
@@ -546,6 +627,7 @@ async function fetchCSV(url) {
 }
 
 async function loadAllData() {
+  // Dashboard já inicializado com dados base — fetch atualiza por cima
   try {
     const [rowsVisao, rowsCamp, rowsAcont, rowsProx] = await Promise.all([
       fetchCSV(CSV_URLS.visao),
@@ -554,24 +636,30 @@ async function loadAllData() {
       fetchCSV(CSV_URLS.proximos),
     ]);
 
+    // Tenta parsear — se tiver dados válidos, atualiza e re-renderiza
+    const prevMeses = [...MESES];
     parseVisao(rowsVisao);
     parseCampanhas(rowsCamp);
     parseAconteceu(rowsAcont);
     parseProximos(rowsProx);
 
-    // Reconstruir o main com as seções (foram removidas pelo loading)
-    // Não removemos mais — apenas inicializamos os dados
-    initDashboard();
+    // Validar: se MESES ficou vazio, reverter para dados base
+    if (!MESES || MESES.length === 0) {
+      console.warn('[Dashboard] Parse retornou MESES vazio — mantendo dados base');
+      return;
+    }
+
+    // Se parse OK e há novos meses, reinicializar filtro e re-renderizar
+    console.info('[Dashboard] Dados atualizados do Google Sheets:', MESES);
+    filterIni = 0;
+    filterFim = MESES.length - 1;
+    initFilters();
+    syncSelects();
+    refreshAll();
 
   } catch(e) {
-    document.querySelector('.main').innerHTML = `
-      <div class="loading-screen">
-        <div class="load-error">
-          ⚠️ Erro ao carregar dados da planilha.<br><br>
-          Verifique se a planilha está publicada corretamente no Google Sheets e tente novamente.<br><br>
-          <small style="color:var(--text-muted)">${e.message || e}</small>
-        </div>
-      </div>`;
+    // Fetch falhou (CORS local, offline, etc.) — dados base já estão ativos
+    console.warn('[Dashboard] Fetch do Google Sheets falhou — usando dados base:', e.message || e);
   }
 }
 
@@ -1006,7 +1094,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   setTimeout(()=>{ const u=document.getElementById('login-user'); if(u) u.focus(); }, 200);
 
-  // Carregar dados da planilha
+  // Inicializar imediatamente com dados base
+  initDashboard();
+
+  // Tentar atualizar com dados do Google Sheets em background
   loadAllData();
 });
 </script>
