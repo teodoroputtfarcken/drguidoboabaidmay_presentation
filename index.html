@@ -506,12 +506,16 @@ function parseVisao(rows) {
 function parseCampanhas(rows) {
   // Encontrar linha de cabeçalho (contém "CAMPANHA" ou "Campanha")
   const hdrIdx = rows.findIndex(r => r[0] && r[0].toLowerCase().includes('campanha'));
-  if (hdrIdx < 0) return;
-  const hdr = rows[hdrIdx].map(h => h.toLowerCase().trim());
+  if (hdrIdx < 0) {
+    console.warn('[parseCampanhas] Nenhuma linha de cabeçalho encontrada');
+    return;
+  }
+  
+  const hdr = rows[hdrIdx].map(h => (h || '').toLowerCase().trim());
   const iOf = k => hdr.findIndex(h => h.includes(k));
 
   const iCamp  = iOf('campanha');
-  const iMes   = iOf('mês') !== -1 ? iOf('mês') : iOf('mes');
+  const iMes   = iOf('mês') > -1 ? iOf('mês') : iOf('mes');
   const iInvst = iOf('invest');
   const iClk   = iOf('clique');
   const iImp   = iOf('impress');
@@ -520,6 +524,8 @@ function parseCampanhas(rows) {
   const iConv  = iOf('convers');
   const iCpa   = iOf('cpa');
   const iTaxa  = iOf('taxa');
+
+  console.info('[parseCampanhas] Índices encontrados:', {iCamp, iMes, iInvst, iClk, iImp, iCtr, iCpc, iConv, iCpa, iTaxa});
 
   // Mapeamento de nomes de campanha para nomes curtos
   const CAMP_MAP = {
@@ -542,11 +548,11 @@ function parseCampanhas(rows) {
     return raw.trim();
   }
 
-  CAMPANHAS = rows.slice(hdrIdx+1)
-    .filter(r => r[iCamp] && r[iCamp].trim() !== '' && r[iCamp].trim() !== 'CAMPANHA')
+  const rawData = rows.slice(hdrIdx+1)
+    .filter(r => r[iCamp] && r[iCamp].toString().trim() !== '' && r[iCamp].toString().trim() !== 'CAMPANHA')
     .map(r => ({
       camp:   normalizeCamp(r[iCamp]),
-      mes:    (r[iMes] || '').trim(),
+      mes:    (r[iMes] || '').toString().trim(),
       invest: parseBR(r[iInvst]),
       clicks: parseIntBR(r[iClk]),
       imp:    parseIntBR(r[iImp]),
@@ -557,6 +563,13 @@ function parseCampanhas(rows) {
       taxa:   parseBR(r[iTaxa]),
     }))
     .filter(r => r.camp && r.mes);
+
+  if (rawData.length > 0) {
+    CAMPANHAS = rawData;
+    console.info('[parseCampanhas] Parseado com sucesso:', CAMPANHAS.length, 'registros');
+  } else {
+    console.warn('[parseCampanhas] Nenhum dado válido encontrado');
+  }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -600,24 +613,32 @@ function parseAconteceu(rows) {
    PARSER — Próximos Passos CSV
 ════════════════════════════════════════════════════════════ */
 function parseProximos(rows) {
+  console.info('[parseProximos] Iniciando parse com', rows.length, 'linhas');
+  
   // Encontrar linha de cabeçalho dos meses
-  let hdrIdx = rows.findIndex(r => r.some(cell => cell && /\d{4}|mês|mes/i.test(cell)));
+  let hdrIdx = rows.findIndex(r => r && r.some(cell => cell && /\d{4}|mês|mes/i.test(cell)));
+  if (hdrIdx < 0) {
+    // Se não achar, procura pela primeira linha que tenha data
+    hdrIdx = rows.findIndex(r => r && r.some(cell => cell && /\d{1,2}\/\d{4}|Março|Abril|Maio|Junho/i.test(cell)));
+  }
   if (hdrIdx < 0) hdrIdx = 1;
 
   const mesRow = rows[hdrIdx] || [];
   const mesesLocal = mesRow.slice(1)
-    .filter(m => m && m.trim() !== '' && /\d{4}|\/|janeiro|fevereiro|março|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro/i.test(m))
-    .map(m => m.trim());
+    .filter(m => m && m.toString().trim() !== '' && /\d{4}|\/|janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro/i.test(m))
+    .map(m => m.toString().trim());
+
+  console.info('[parseProximos] Meses detectados:', mesesLocal);
 
   if (mesesLocal.length === 0) {
-    console.warn('[parseProximos] Nenhum mês detectado');
+    console.warn('[parseProximos] Nenhum mês detectado, usando dados base');
     return;
   }
 
-  // Procurar linhas de conteúdo
+  // Procurar linhas de conteúdo a partir do cabeçalho
   const rowGoogle = findRow(rows, 'Google') || rows[hdrIdx + 1] || [];
   const rowMeta   = findRow(rows, 'Meta')   || rows[hdrIdx + 2] || [];
-  const rowObs    = findRow(rows, 'Obs')    || rows[hdrIdx + 3] || [];
+  const rowObs    = findRow(rows, 'Obs')    || findRow(rows, 'observ') || rows[hdrIdx + 3] || [];
 
   PROXIMOS = mesesLocal.map((mes, i) => {
     const colIdx = i + 1;
@@ -1011,7 +1032,51 @@ function buildCampanhasCharts() {
     : { type:'line', data:{labels,datasets:campDatasets('ctr',v=>v!=null?`${v}%`:'')} , options:lineChartOpts(v=>`${v}%`) });
 
   // Tabela
+  const mesesAtivos = getFilteredIndexes().map(i => MESES[i]);
   const allData = CAMPANHAS.filter(c => mesesAtivos.includes(c.mes));
+  
+  if (allData.length === 0) {
+    console.warn('[buildCampanhasCharts] Nenhum dado de campanhas para período, usando base');
+    // Fallback aos dados base
+    const baseData = [
+      {camp:'Florianópolis',mes:'Março/2026',  invest:904.89,  clicks:180,imp:2359, ctr:8.05, cpc:5.03, conv:32,   cpa:28.28,taxa:19.02},
+      {camp:'São Paulo',    mes:'Março/2026',  invest:672.16,  clicks:170,imp:2221, ctr:7.78, cpc:3.95, conv:27,   cpa:24.89,taxa:17.05},
+      {camp:'Institucional',mes:'Março/2026',  invest:236.96,  clicks:81, imp:1125, ctr:7.26, cpc:2.93, conv:10.33,cpa:22.93,taxa:13.65},
+      {camp:'Online',       mes:'Março/2026',  invest:169.45,  clicks:39, imp:662,  ctr:6.21, cpc:4.34, conv:4,    cpa:42.36,taxa:9.76},
+      {camp:'Florianópolis',mes:'Abril/2026',  invest:922.79,  clicks:109,imp:1795, ctr:6.07, cpc:8.47, conv:12,   cpa:76.90,taxa:11.01},
+      {camp:'São Paulo',    mes:'Abril/2026',  invest:811.97,  clicks:119,imp:2011, ctr:5.92, cpc:6.82, conv:28,   cpa:29.00,taxa:23.53},
+      {camp:'Institucional',mes:'Abril/2026',  invest:123.13,  clicks:51, imp:343,  ctr:14.87,cpc:2.41, conv:17,   cpa:7.24, taxa:33.33},
+      {camp:'Online',       mes:'Abril/2026',  invest:349.06,  clicks:104,imp:2075, ctr:5.01, cpc:3.36, conv:23,   cpa:15.18,taxa:22.12},
+      {camp:'Florianópolis',mes:'Maio/2026',   invest:717.27,  clicks:80, imp:1137, ctr:7.04, cpc:8.97, conv:10,   cpa:71.73,taxa:12.50},
+      {camp:'São Paulo',    mes:'Maio/2026',   invest:1201.66, clicks:181,imp:2968, ctr:6.10, cpc:6.66, conv:25,   cpa:48.07,taxa:13.81},
+      {camp:'Institucional',mes:'Maio/2026',   invest:153.72,  clicks:65, imp:421,  ctr:15.44,cpc:2.36, conv:10,   cpa:15.37,taxa:15.38},
+      {camp:'Online',       mes:'Maio/2026',   invest:634.01,  clicks:149,imp:2412, ctr:6.18, cpc:4.26, conv:27,   cpa:23.48,taxa:18.12},
+    ];
+    const filteredBase = baseData.filter(c => mesesAtivos.includes(c.mes));
+    let mesIdx=-1, lastMes=null;
+    document.getElementById('tbody-campanhas').innerHTML = filteredBase.map(c => {
+      const first = c.mes!==lastMes; if(first){mesIdx++;lastMes=c.mes;}
+      const gc = mesIdx%2===0?'mes-group-even':'mes-group-odd';
+      const fc = first?' mes-group-first':'';
+      const col = CAMP_COLORS[c.camp]||'#fff';
+      const cpaC = c.cpa>40?'pill red':c.cpa<20?'pill green':'pill blue';
+      const ctrC = c.ctr>10?'pill green':c.ctr<6?'pill red':'pill blue';
+      return `<tr class="${gc}${fc}">
+        <td><div class="camp-name"><span class="camp-dot" style="background:${col}"></span>${c.camp}</div></td>
+        <td style="text-align:left">${c.mes}</td>
+        <td>R$${c.invest!=null?c.invest.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+        <td>${c.clicks!=null?c.clicks.toLocaleString('pt-BR'):'—'}</td>
+        <td>${c.imp!=null?c.imp.toLocaleString('pt-BR'):'—'}</td>
+        <td><span class="${ctrC}">${c.ctr!=null?c.ctr+'%':'—'}</span></td>
+        <td>${c.cpc!=null?'R$'+c.cpc.toFixed(2):'—'}</td>
+        <td>${c.conv!=null?c.conv:'—'}</td>
+        <td><span class="${cpaC}">${c.cpa!=null?'R$'+c.cpa.toFixed(2):'—'}</span></td>
+        <td>${c.taxa!=null?c.taxa+'%':'—'}</td>
+      </tr>`;
+    }).join('');
+    return;
+  }
+
   let mesIdx=-1, lastMes=null;
   document.getElementById('tbody-campanhas').innerHTML = allData.map(c => {
     const first = c.mes!==lastMes; if(first){mesIdx++;lastMes=c.mes;}
