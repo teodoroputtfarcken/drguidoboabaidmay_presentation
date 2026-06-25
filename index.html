@@ -228,13 +228,15 @@ tbody tr.mes-group-first:first-child td { border-top:none; }
       <div class="chart-grid">
         <div class="chart-card"><div class="chart-header"><div><div class="chart-title">Investimento por Campanha</div></div></div><div class="chart-wrap tall"><canvas id="chart-camp-invest"></canvas></div></div>
         <div class="chart-card"><div class="chart-header"><div><div class="chart-title">Conversões por Campanha</div></div></div><div class="chart-wrap tall"><canvas id="chart-camp-conv"></canvas></div></div>
+        <div class="chart-card"><div class="chart-header"><div><div class="chart-title">CPA por Campanha</div></div><div class="chart-badge">Menor = melhor</div></div><div class="chart-wrap tall"><canvas id="chart-camp-cpa"></canvas></div></div>
+        <div class="chart-card"><div class="chart-header"><div><div class="chart-title">CTR por Campanha</div></div></div><div class="chart-wrap tall"><canvas id="chart-camp-ctr"></canvas></div></div>
       </div>
       <div class="section-title">Tabela Detalhada</div>
       <div class="table-card">
         <div class="table-header-row"><div class="table-title">Todas as Campanhas</div></div>
         <div style="overflow-x:auto;">
           <table id="table-campanhas">
-            <thead><tr><th>Campanha</th><th>Mês</th><th>Investimento</th><th>Cliques</th><th>CTR</th><th>Conversões</th><th>CPA</th></tr></thead>
+            <thead><tr><th>Campanha</th><th>Mês</th><th>Investimento</th><th>Cliques</th><th>Impressões</th><th>CTR</th><th>CPC</th><th>Conversões</th><th>CPA</th><th>Taxa Conv.</th></tr></thead>
             <tbody id="tbody-campanhas"></tbody>
           </table>
         </div>
@@ -271,34 +273,43 @@ tbody tr.mes-group-first:first-child td { border-top:none; }
 <script>
 const MESES = ['Março/2026','Abril/2026','Maio/2026'];
 const MESES_SHORT = ['Mar','Abr','Mai'];
+const CHART_COLORS = { google:'#2E6BE6', meta:'#818CF8', accent:'#5EEAD4', gold:'#E8C97A' };
 const CAMP_COLORS = {'Florianópolis':'#2E6BE6','São Paulo':'#5EEAD4','Institucional':'#E8C97A','Online':'#818CF8'};
 const CAMP_NAMES = ['Florianópolis','São Paulo','Institucional','Online'];
 
+const VISAO = {
+  investimento_total: [3722.26, 3608.14, 4137.19],
+  google_invest: [2469.38, 2555.36, 2468.65],
+  meta_invest: [1252.88, 1255.40, 1668.54],
+  conversoes: [90, 85, 72],
+  cpa: [26.14, 30.06, 39.34],
+};
+
 const CAMPANHAS = [
-  {camp:'Florianópolis',mes:'Março/2026',  invest:904.89,  clicks:180,  ctr:8.05,  conv:32,   cpa:28.28},
-  {camp:'São Paulo',    mes:'Março/2026',  invest:672.16,  clicks:170,  ctr:7.78,  conv:27,   cpa:24.89},
-  {camp:'Institucional',mes:'Março/2026',  invest:236.96,  clicks:81,   ctr:7.26,  conv:10.33,cpa:22.93},
-  {camp:'Online',       mes:'Março/2026',  invest:169.45,  clicks:39,   ctr:6.21,  conv:4,    cpa:42.36},
-  {camp:'Florianópolis',mes:'Abril/2026',  invest:922.79,  clicks:109,  ctr:6.07,  conv:12,   cpa:76.90},
-  {camp:'São Paulo',    mes:'Abril/2026',  invest:811.97,  clicks:119,  ctr:5.92,  conv:28,   cpa:29.00},
-  {camp:'Institucional',mes:'Abril/2026',  invest:123.13,  clicks:51,   ctr:14.87, conv:17,   cpa:7.24},
-  {camp:'Online',       mes:'Abril/2026',  invest:349.06,  clicks:104,  ctr:5.01,  conv:23,   cpa:15.18},
-  {camp:'Florianópolis',mes:'Maio/2026',   invest:717.27,  clicks:80,   ctr:7.04,  conv:10,   cpa:71.73},
-  {camp:'São Paulo',    mes:'Maio/2026',   invest:1201.66, clicks:181,  ctr:6.10,  conv:25,   cpa:48.07},
-  {camp:'Institucional',mes:'Maio/2026',   invest:153.72,  clicks:65,   ctr:15.44, conv:10,   cpa:15.37},
-  {camp:'Online',       mes:'Maio/2026',   invest:634.01,  clicks:149,  ctr:6.18,  conv:27,   cpa:23.48},
+  {camp:'Florianópolis',mes:'Março/2026',  invest:904.89,  clicks:180,imp:2359, ctr:8.05, cpc:5.03, conv:32,   cpa:28.28,taxa:19.02},
+  {camp:'São Paulo',    mes:'Março/2026',  invest:672.16,  clicks:170,imp:2221, ctr:7.78, cpc:3.95, conv:27,   cpa:24.89,taxa:17.05},
+  {camp:'Institucional',mes:'Março/2026',  invest:236.96,  clicks:81, imp:1125, ctr:7.26, cpc:2.93, conv:10.33,cpa:22.93,taxa:13.65},
+  {camp:'Online',       mes:'Março/2026',  invest:169.45,  clicks:39, imp:662,  ctr:6.21, cpc:4.34, conv:4,    cpa:42.36,taxa:9.76},
+  {camp:'Florianópolis',mes:'Abril/2026',  invest:922.79,  clicks:109,imp:1795, ctr:6.07, cpc:8.47, conv:12,   cpa:76.90,taxa:11.01},
+  {camp:'São Paulo',    mes:'Abril/2026',  invest:811.97,  clicks:119,imp:2011, ctr:5.92, cpc:6.82, conv:28,   cpa:29.00,taxa:23.53},
+  {camp:'Institucional',mes:'Abril/2026',  invest:123.13,  clicks:51, imp:343,  ctr:14.87,cpc:2.41, conv:17,   cpa:7.24, taxa:33.33},
+  {camp:'Online',       mes:'Abril/2026',  invest:349.06,  clicks:104,imp:2075, ctr:5.01, cpc:3.36, conv:23,   cpa:15.18,taxa:22.12},
+  {camp:'Florianópolis',mes:'Maio/2026',   invest:717.27,  clicks:80, imp:1137, ctr:7.04, cpc:8.97, conv:10,   cpa:71.73,taxa:12.50},
+  {camp:'São Paulo',    mes:'Maio/2026',   invest:1201.66, clicks:181,imp:2968, ctr:6.10, cpc:6.66, conv:25,   cpa:48.07,taxa:13.81},
+  {camp:'Institucional',mes:'Maio/2026',   invest:153.72,  clicks:65, imp:421,  ctr:15.44,cpc:2.36, conv:10,   cpa:15.37,taxa:15.38},
+  {camp:'Online',       mes:'Maio/2026',   invest:634.01,  clicks:149,imp:2412, ctr:6.18, cpc:4.26, conv:27,   cpa:23.48,taxa:18.12},
 ];
 
 const ACONTECEU = [
-  {mes:'Março/2026', google:'Refinamento estratégico com 110 alterações. Separação presencial/online. Foco em qualidade do tráfego.', meta:'Meta Ads como canal de descoberta. Início campanha de seguidores (pausada).', outros:'Configuração CRM Kommo.'},
-  {mes:'Abril/2026', google:'Online CPA caiu de R$42,36 para R$15,18. Separação presencial/online com resultado.', meta:'Funil existe mas não fecha: TOPO e MEIO com volume, FUNDO sem conversões.', outros:''},
-  {mes:'Maio/2026', google:'492 cliques, CTR 6,80%, 72 conversões, CPA R$39,34. Queda em conversões mas melhora em volume.', meta:'Conta limitada até 15/06 por violação de política sobre remédios.', outros:'Landing page entregue.'},
+  {mes:'Março/2026', google:'Refinamento estratégico com 110 alterações. Separação presencial/online. Foco em qualidade.', meta:'Meta como descoberta. Campanha seguidores (pausada).', outros:'Config CRM Kommo.'},
+  {mes:'Abril/2026', google:'Online CPA caiu R$42,36→R$15,18. Separação com resultado.', meta:'Funil: TOPO/MEIO com volume, FUNDO sem conversões.', outros:''},
+  {mes:'Maio/2026', google:'492 cliques, CTR 6,80%, 72 conv, CPA R$39,34. Queda conversões.', meta:'Conta limitada 15/06 por violação política remédios.', outros:'Landing page.'},
 ];
 
 const PROXIMOS = [
-  {mes:'Março/2026', google:'Avaliar Florianópolis e SP. Decisão Jaraguá do Sul. Redução alcance geográfico.', meta:'Funil completo. Atualizar criativos.', obs:''},
-  {mes:'Abril/2026', google:'Aumentar SP e Online. Desativar Jaraguá. Reduzir CPA Florianópolis.', meta:'Completar funil. Expandir segmentação.', obs:'Rastrear Kommo.'},
-  {mes:'Maio/2026', google:'Recuperar eficiência. Revisar termos pesquisa. Aumentar clientes fora estado.', meta:'Novos vídeos fundo funil.', obs:''},
+  {mes:'Março/2026', google:'Avaliar SP e Florianópolis. Decidir Jaraguá. Reduzir alcance.', meta:'Funil completo. Atualizar criativos.', obs:''},
+  {mes:'Abril/2026', google:'Aumentar SP e Online. Desativar Jaraguá. CPA Flor.', meta:'Funil. Expandir segmentação.', obs:'Rastrear Kommo.'},
+  {mes:'Maio/2026', google:'Recuperar eficiência. Revisar termos. Clientes fora estado.', meta:'Novos vídeos fundo funil.', obs:''},
 ];
 
 let filterIni = 0, filterFim = 2, chartRefs = {}, campanhasBuilt = false;
@@ -348,19 +359,18 @@ function refreshAll() {
   buildCharts();
   renderNarrativas();
   renderProximos();
-  if (document.getElementById('google-ads').classList.contains('active')) {
+  if (document.getElementById('google-ads').classList.contains('active') && !campanhasBuilt) {
     buildCampanhasCharts();
     campanhasBuilt = true;
   }
 }
 
 function renderKPIs() {
-  const idxs = getFilteredIndexes();
-  const last = idxs[idxs.length-1];
+  const last = 2;
   const kpis = [
-    {label:'Conversões',value:72,cls:'accent-teal'},
-    {label:'CPA Médio',value:'R$39,34',cls:'accent-blue'},
-    {label:'Investimento',value:'R$4.137,19',cls:''},
+    {label:'Investimento',value:`R$${VISAO.investimento_total[last].toLocaleString('pt-BR',{minimumFractionDigits:2})}`,cls:'accent-blue'},
+    {label:'Conversões',value:VISAO.conversoes[last],cls:'accent-teal'},
+    {label:'CPA Médio',value:`R$${VISAO.cpa[last].toFixed(2)}`,cls:'accent-gold'},
   ];
   document.getElementById('kpi-visao').innerHTML = kpis.map(k => `
     <div class="kpi-card ${k.cls}">
@@ -376,25 +386,34 @@ function buildCharts() {
   Chart.register(ChartDataLabels);
 
   const labels = getFilteredIndexes().map(i => MESES_SHORT[i]);
-  const invData = [3722.26, 3608.14, 4137.19];
-  const convData = [90, 85, 72];
-  const cpaData = [26.14, 30.06, 39.34];
 
   chartRefs['inv'] = new Chart(document.getElementById('chart-investimento'), {
     type:'bar',
-    data:{labels,datasets:[{label:'Total',data:filteredSlice(invData),backgroundColor:'#2E6BE6'}]},
-    options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}
+    data:{
+      labels,
+      datasets:[
+        {type:'bar',label:'Google',data:filteredSlice(VISAO.google_invest),backgroundColor:'#2E6BE6',borderRadius:6},
+        {type:'bar',label:'Meta',data:filteredSlice(VISAO.meta_invest),backgroundColor:'#C084FC',borderRadius:6},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{boxWidth:10,padding:14}}}},
   });
 
   chartRefs['conv'] = new Chart(document.getElementById('chart-conversoes'), {
     type:'line',
-    data:{labels,datasets:[{label:'Conversões',data:filteredSlice(convData),borderColor:'#5EEAD4',tension:0.3}]},
+    data:{
+      labels,
+      datasets:[{label:'Conversões',data:filteredSlice(VISAO.conversoes),borderColor:CHART_COLORS.accent,tension:0.3,pointBackgroundColor:CHART_COLORS.accent}]
+    },
     options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}
   });
 
   chartRefs['cpa'] = new Chart(document.getElementById('chart-cpa'), {
     type:'bar',
-    data:{labels,datasets:[{label:'CPA',data:filteredSlice(cpaData),backgroundColor:'#E8C97A'}]},
+    data:{
+      labels,
+      datasets:[{label:'CPA',data:filteredSlice(VISAO.cpa),backgroundColor:CHART_COLORS.gold,borderRadius:6}]
+    },
     options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}
   });
 }
@@ -402,32 +421,49 @@ function buildCharts() {
 function buildCampanhasCharts() {
   const mesesAtivos = getFilteredIndexes().map(i => MESES[i]);
   const filteredData = CAMPANHAS.filter(c => mesesAtivos.includes(c.mes));
-  
   const labels = getFilteredIndexes().map(i => MESES_SHORT[i]);
-  const invests = CAMP_NAMES.map(name => filteredData.filter(c=>c.camp===name).map(c=>c.invest));
-  const convs = CAMP_NAMES.map(name => filteredData.filter(c=>c.camp===name).map(c=>c.conv));
 
-  chartRefs['camp-inv'] = new Chart(document.getElementById('chart-camp-invest'), {
-    type:'bar',
-    data:{labels,datasets:CAMP_NAMES.map((name,i)=>({label:name,data:invests[i],backgroundColor:CAMP_COLORS[name]}))},
+  const campInvest = CAMP_NAMES.map(name => filteredData.filter(c=>c.camp===name).map(c=>c.invest));
+  const campConv = CAMP_NAMES.map(name => filteredData.filter(c=>c.camp===name).map(c=>c.conv));
+  const campCpa = CAMP_NAMES.map(name => filteredData.filter(c=>c.camp===name).map(c=>c.cpa));
+  const campCtr = CAMP_NAMES.map(name => filteredData.filter(c=>c.camp===name).map(c=>c.ctr));
+
+  chartRefs['ci'] = new Chart(document.getElementById('chart-camp-invest'), {
+    type:'line',
+    data:{labels,datasets:CAMP_NAMES.map((n,i)=>({label:n,data:campInvest[i],borderColor:CAMP_COLORS[n],tension:0.3,pointBackgroundColor:CAMP_COLORS[n]}))},
     options:{responsive:true,maintainAspectRatio:true}
   });
 
-  chartRefs['camp-conv'] = new Chart(document.getElementById('chart-camp-conv'), {
-    type:'bar',
-    data:{labels,datasets:CAMP_NAMES.map((name,i)=>({label:name,data:convs[i],backgroundColor:CAMP_COLORS[name]}))},
+  chartRefs['cc'] = new Chart(document.getElementById('chart-camp-conv'), {
+    type:'line',
+    data:{labels,datasets:CAMP_NAMES.map((n,i)=>({label:n,data:campConv[i],borderColor:CAMP_COLORS[n],tension:0.3,pointBackgroundColor:CAMP_COLORS[n]}))},
+    options:{responsive:true,maintainAspectRatio:true}
+  });
+
+  chartRefs['ccp'] = new Chart(document.getElementById('chart-camp-cpa'), {
+    type:'line',
+    data:{labels,datasets:CAMP_NAMES.map((n,i)=>({label:n,data:campCpa[i],borderColor:CAMP_COLORS[n],tension:0.3,pointBackgroundColor:CAMP_COLORS[n]}))},
+    options:{responsive:true,maintainAspectRatio:true}
+  });
+
+  chartRefs['cct'] = new Chart(document.getElementById('chart-camp-ctr'), {
+    type:'line',
+    data:{labels,datasets:CAMP_NAMES.map((n,i)=>({label:n,data:campCtr[i],borderColor:CAMP_COLORS[n],tension:0.3,pointBackgroundColor:CAMP_COLORS[n]}))},
     options:{responsive:true,maintainAspectRatio:true}
   });
 
   document.getElementById('tbody-campanhas').innerHTML = filteredData.map(c => `
     <tr>
-      <td>${c.camp}</td>
+      <td><span style="color:${CAMP_COLORS[c.camp]}">${c.camp}</span></td>
       <td>${c.mes}</td>
       <td>R$${c.invest.toFixed(2)}</td>
       <td>${c.clicks}</td>
+      <td>${c.imp}</td>
       <td>${c.ctr}%</td>
+      <td>R$${c.cpc.toFixed(2)}</td>
       <td>${c.conv}</td>
       <td>R$${c.cpa.toFixed(2)}</td>
+      <td>${c.taxa}%</td>
     </tr>
   `).join('');
 }
@@ -450,11 +486,11 @@ function renderProximos() {
   const filtered = PROXIMOS.filter((item,i) => i>=filterIni && i<=filterFim);
   document.getElementById('proximos-grid').innerHTML = filtered.map(p => `
     <div class="proximo-card">
-      <div class="proximo-header"><div class="proximo-mes">${p.mes}</div><h3>Plano de Ação</h3></div>
+      <div class="proximo-header"><div class="proximo-mes">${p.mes}</div><h3>Plano</h3></div>
       <div class="proximo-body">
         <div class="proximo-block"><div class="proximo-block-title google">Google Ads</div><div class="proximo-text">${p.google}</div></div>
         <div class="proximo-block"><div class="proximo-block-title meta">Meta Ads</div><div class="proximo-text">${p.meta}</div></div>
-        ${p.obs?`<div class="proximo-block"><div class="proximo-block-title obs">Observações</div><div class="proximo-text">${p.obs}</div></div>`:''}
+        ${p.obs?`<div class="proximo-block"><div class="proximo-block-title obs">Obs.</div><div class="proximo-text">${p.obs}</div></div>`:''}
       </div>
     </div>
   `).join('');
