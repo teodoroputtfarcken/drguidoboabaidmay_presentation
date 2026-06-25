@@ -560,119 +560,137 @@ function parseCampanhas(rows) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   PARSER — O que Aconteceu CSV (FLEXÍVEL)
-   Procura por padrões: Março/Abril/Maio, Google, Meta, Outras
+   PARSER — O que Aconteceu CSV (ESTRUTURA TABULAR)
 ════════════════════════════════════════════════════════════ */
 function parseAconteceu(rows) {
-  // Normalizar: remover linhas vazias
-  const cleanRows = rows.filter(r => r.some(cell => cell && cell.trim() !== ''));
+  console.log('[parseAconteceu] CSV bruto (primeiras 3 linhas):', rows.slice(0, 3));
   
-  // Detectar meses: procurar células com padrão "Mês/Ano"
-  const mesesEncontrados = new Set();
-  cleanRows.forEach(row => {
-    row.forEach(cell => {
-      if (cell && /^(janeiro|fevereiro|março|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/\d{4}$/i.test(cell.trim())) {
-        mesesEncontrados.add(cell.trim());
-      }
-    });
-  });
+  const cleanRows = rows.filter(r => r && r.some(c => c && String(c).trim() !== ''));
   
-  // Se não encontrou padrão, usar MESES conhecidos
-  const mesesLocal = mesesEncontrados.size > 0 ? Array.from(mesesEncontrados) : MESES;
-
-  // Construir objeto por mês
+  // Encontrar linha de cabeçalho (contém meses com ano)
+  let headerIdx = -1;
+  let mesesLocal = [];
+  
+  for (let i = 0; i < Math.min(5, cleanRows.length); i++) {
+    const row = cleanRows[i];
+    const monthsInRow = row.slice(1)
+      .map(c => String(c).trim())
+      .filter(c => /^(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/\d{4}$/i.test(c));
+    
+    if (monthsInRow.length > 0) {
+      headerIdx = i;
+      mesesLocal = monthsInRow;
+      console.log('[parseAconteceu] Header encontrado na linha', i, 'com meses:', mesesLocal);
+      break;
+    }
+  }
+  
+  // Fallback: usar MESES do objeto VISAO
+  if (mesesLocal.length === 0) {
+    mesesLocal = MESES;
+    console.warn('[parseAconteceu] Nenhum header encontrado, usando MESES:', MESES);
+  }
+  
+  // Construir lookup
   const result = {};
   mesesLocal.forEach(mes => {
     result[mes] = { mes, google: '', meta: '', outros: '' };
   });
-
-  // Varrer linhas procurando por seções
-  let currentMes = null;
-  let currentSeção = null;
-
-  cleanRows.forEach(row => {
-    const label = row[0] ? row[0].toLowerCase().trim() : '';
-    
-    // Detectar mês
-    mesesLocal.forEach(mes => {
-      if (label.includes(mes.toLowerCase())) {
-        currentMes = mes;
-        currentSeção = null;
-      }
-    });
-    
-    // Detectar seção
-    if (label.includes('google')) currentSeção = 'google';
-    else if (label.includes('meta')) currentSeção = 'meta';
-    else if (label.includes('outra') || label.includes('ação')) currentSeção = 'outros';
-    
-    // Se temos mês + seção + conteúdo, capturar
-    if (currentMes && currentSeção && row[1]) {
-      const content = row.slice(1).filter(c => c && c.trim() !== '').join(' ').trim();
-      if (content && content.length > 3) {
-        result[currentMes][currentSeção] = content;
+  
+  // Se encontrou header, processar dados
+  if (headerIdx >= 0) {
+    for (let i = headerIdx + 1; i < cleanRows.length; i++) {
+      const row = cleanRows[i];
+      const label = row[0] ? String(row[0]).toLowerCase().trim() : '';
+      
+      let field = null;
+      if (label.includes('google')) field = 'google';
+      else if (label.includes('meta')) field = 'meta';
+      else if (label.includes('outra') || label.includes('ação')) field = 'outros';
+      
+      if (field) {
+        mesesLocal.forEach((mes, idx) => {
+          const cellContent = row[idx + 1];
+          if (cellContent) {
+            const content = String(cellContent).trim();
+            if (content.length > 5) { // Mínimo de 5 caracteres
+              result[mes][field] = content;
+              console.log(`[parseAconteceu] ${mes} > ${field}: "${content.substring(0, 50)}..."`);
+            }
+          }
+        });
       }
     }
-  });
-
+  }
+  
   ACONTECEU = mesesLocal.map(mes => result[mes]);
-  console.log('[parseAconteceu] Resultado:', ACONTECEU);
+  console.log('[parseAconteceu] Resultado:', JSON.stringify(ACONTECEU, null, 2));
 }
 
 /* ════════════════════════════════════════════════════════════
-   PARSER — Próximos Passos CSV (FLEXÍVEL)
+   PARSER — Próximos Passos CSV (ESTRUTURA TABULAR)
 ════════════════════════════════════════════════════════════ */
 function parseProximos(rows) {
-  // Normalizar
-  const cleanRows = rows.filter(r => r.some(cell => cell && cell.trim() !== ''));
+  console.log('[parseProximos] CSV bruto (primeiras 3 linhas):', rows.slice(0, 3));
   
-  // Detectar meses
-  const mesesEncontrados = new Set();
-  cleanRows.forEach(row => {
-    row.forEach(cell => {
-      if (cell && /^(janeiro|fevereiro|março|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/\d{4}$/i.test(cell.trim())) {
-        mesesEncontrados.add(cell.trim());
-      }
-    });
-  });
+  const cleanRows = rows.filter(r => r && r.some(c => c && String(c).trim() !== ''));
   
-  const mesesLocal = mesesEncontrados.size > 0 ? Array.from(mesesEncontrados) : MESES;
-
+  // Encontrar linha de cabeçalho
+  let headerIdx = -1;
+  let mesesLocal = [];
+  
+  for (let i = 0; i < Math.min(5, cleanRows.length); i++) {
+    const row = cleanRows[i];
+    const monthsInRow = row.slice(1)
+      .map(c => String(c).trim())
+      .filter(c => /^(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/\d{4}$/i.test(c));
+    
+    if (monthsInRow.length > 0) {
+      headerIdx = i;
+      mesesLocal = monthsInRow;
+      console.log('[parseProximos] Header encontrado na linha', i, 'com meses:', mesesLocal);
+      break;
+    }
+  }
+  
+  // Fallback
+  if (mesesLocal.length === 0) {
+    mesesLocal = MESES;
+    console.warn('[parseProximos] Nenhum header encontrado, usando MESES:', MESES);
+  }
+  
   const result = {};
   mesesLocal.forEach(mes => {
     result[mes] = { mes, google: '', meta: '', obs: '' };
   });
-
-  let currentMes = null;
-  let currentSeção = null;
-
-  cleanRows.forEach(row => {
-    const label = row[0] ? row[0].toLowerCase().trim() : '';
-    
-    // Detectar mês
-    mesesLocal.forEach(mes => {
-      if (label.includes(mes.toLowerCase())) {
-        currentMes = mes;
-        currentSeção = null;
-      }
-    });
-    
-    // Detectar seção
-    if (label.includes('google')) currentSeção = 'google';
-    else if (label.includes('meta') || label.includes('ads')) currentSeção = 'meta';
-    else if (label.includes('obs') || label.includes('nota')) currentSeção = 'obs';
-    
-    // Capturar conteúdo
-    if (currentMes && currentSeção && row[1]) {
-      const content = row.slice(1).filter(c => c && c.trim() !== '').join(' ').trim();
-      if (content && content.length > 3) {
-        result[currentMes][currentSeção] = content;
+  
+  if (headerIdx >= 0) {
+    for (let i = headerIdx + 1; i < cleanRows.length; i++) {
+      const row = cleanRows[i];
+      const label = row[0] ? String(row[0]).toLowerCase().trim() : '';
+      
+      let field = null;
+      if (label.includes('google')) field = 'google';
+      else if (label.includes('meta')) field = 'meta';
+      else if (label.includes('obs') || label.includes('nota')) field = 'obs';
+      
+      if (field) {
+        mesesLocal.forEach((mes, idx) => {
+          const cellContent = row[idx + 1];
+          if (cellContent) {
+            const content = String(cellContent).trim();
+            if (content.length > 5) {
+              result[mes][field] = content;
+              console.log(`[parseProximos] ${mes} > ${field}: "${content.substring(0, 50)}..."`);
+            }
+          }
+        });
       }
     }
-  });
-
+  }
+  
   PROXIMOS = mesesLocal.map(mes => result[mes]);
-  console.log('[parseProximos] Resultado:', PROXIMOS);
+  console.log('[parseProximos] Resultado:', JSON.stringify(PROXIMOS, null, 2));
 }
 
 /* ════════════════════════════════════════════════════════════
