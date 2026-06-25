@@ -46,7 +46,6 @@ body::before { content:''; position:fixed; inset:0; background:radial-gradient(e
 .kpi-card { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; transition:var(--transition); position:relative; overflow:hidden; }
 .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--blue-soft),transparent); opacity:0; transition:var(--transition); }
 .kpi-card:hover { background:var(--card-hover); border-color:rgba(255,255,255,0.12); }
-.kpi-card:hover::before { opacity:1; }
 .kpi-card.accent-teal::before { background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.6; }
 .kpi-card.accent-gold::before { background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:0.6; }
 .kpi-card.accent-blue::before { background:linear-gradient(90deg,transparent,var(--blue),transparent); opacity:0.6; }
@@ -629,6 +628,7 @@ async function fetchCSV(url) {
 async function loadAllData() {
   // Dashboard já inicializado com dados base — fetch atualiza por cima
   try {
+    console.info('[Dashboard] Iniciando fetch dos CSVs...');
     const [rowsVisao, rowsCamp, rowsAcont, rowsProx] = await Promise.all([
       fetchCSV(CSV_URLS.visao),
       fetchCSV(CSV_URLS.campanhas),
@@ -636,12 +636,23 @@ async function loadAllData() {
       fetchCSV(CSV_URLS.proximos),
     ]);
 
+    console.info('[Dashboard] CSVs carregados. Parseando...');
+    console.info('  - Visão Geral:', rowsVisao.length, 'linhas');
+    console.info('  - Campanhas:', rowsCamp.length, 'linhas');
+    console.info('  - O que Aconteceu:', rowsAcont.length, 'linhas');
+    console.info('  - Próximos Passos:', rowsProx.length, 'linhas');
+
     // Tenta parsear — se tiver dados válidos, atualiza e re-renderiza
-    const prevMeses = [...MESES];
     parseVisao(rowsVisao);
     parseCampanhas(rowsCamp);
     parseAconteceu(rowsAcont);
     parseProximos(rowsProx);
+
+    console.info('[Dashboard] Parse completo.');
+    console.info('  - MESES:', MESES);
+    console.info('  - CAMPANHAS:', CAMPANHAS.length, 'registros');
+    console.info('  - ACONTECEU:', ACONTECEU.length, 'meses');
+    console.info('  - PROXIMOS:', PROXIMOS.length, 'meses');
 
     // Validar: se MESES ficou vazio, reverter para dados base
     if (!MESES || MESES.length === 0) {
@@ -650,7 +661,7 @@ async function loadAllData() {
     }
 
     // Se parse OK e há novos meses, reinicializar filtro e re-renderizar
-    console.info('[Dashboard] Dados atualizados do Google Sheets:', MESES);
+    console.info('[Dashboard] Dados atualizados do Google Sheets com sucesso:', MESES);
     filterIni = 0;
     filterFim = MESES.length - 1;
     initFilters();
@@ -660,6 +671,7 @@ async function loadAllData() {
   } catch(e) {
     // Fetch falhou (CORS local, offline, etc.) — dados base já estão ativos
     console.warn('[Dashboard] Fetch do Google Sheets falhou — usando dados base:', e.message || e);
+    console.warn('Stack:', e.stack);
   }
 }
 
@@ -1065,7 +1077,7 @@ function initDashboard() {
 /* ════════════════════════════════════════════════════════════
    LOGIN
 ════════════════════════════════════════════════════════════ */
-const USERS = { 'teodoro':'2026', 'fernanda':'2026' };
+const USERS = { 'teodoro':'2026', 'fernanda':'2026', 'Paula':'2026' };
 function doLogin() {
   const user = document.getElementById('login-user').value.trim().toLowerCase();
   const pass = document.getElementById('login-pass').value;
