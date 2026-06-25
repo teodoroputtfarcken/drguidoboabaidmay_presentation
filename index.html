@@ -46,7 +46,6 @@ body::before { content:''; position:fixed; inset:0; background:radial-gradient(e
 .kpi-card { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; transition:var(--transition); position:relative; overflow:hidden; }
 .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--blue-soft),transparent); opacity:0; transition:var(--transition); }
 .kpi-card:hover { background:var(--card-hover); border-color:rgba(255,255,255,0.12); }
-.kpi-card:hover::before { opacity:1; }
 .kpi-card.accent-teal::before { background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.6; }
 .kpi-card.accent-gold::before { background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:0.6; }
 .kpi-card.accent-blue::before { background:linear-gradient(90deg,transparent,var(--blue),transparent); opacity:0.6; }
@@ -1001,7 +1000,7 @@ function renderNarrativas() {
   const container = document.getElementById('narrative-aconteceu');
   const filtered = ACONTECEU.filter(item => {
     const idx = MESES.indexOf(item.mes);
-    return idx >= filterIni && idx <= filterFim;
+    return idx !== -1 && idx >= filterIni && idx <= filterFim;
   });
   if (!filtered.length) { container.innerHTML='<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado para o período selecionado.</div>'; return; }
   container.innerHTML = filtered.map(item => `
@@ -1019,7 +1018,7 @@ function renderProximos() {
   const container = document.getElementById('proximos-grid');
   const filtered = PROXIMOS.filter(item => {
     const idx = MESES.indexOf(item.mes);
-    return idx >= filterIni && idx <= filterFim;
+    return idx !== -1 && idx >= filterIni && idx <= filterFim;
   });
   if (!filtered.length) { container.innerHTML='<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado para o período selecionado.</div>'; return; }
   container.innerHTML = filtered.map(item => `
@@ -1065,7 +1064,7 @@ function initDashboard() {
 /* ════════════════════════════════════════════════════════════
    LOGIN
 ════════════════════════════════════════════════════════════ */
-const USERS = { 'teodoro':'2026', 'fernanda':'2026' };
+const USERS = { 'teodoro':'2026', 'fernanda':'2026', 'paula':'2026' };
 function doLogin() {
   const user = document.getElementById('login-user').value.trim().toLowerCase();
   const pass = document.getElementById('login-pass').value;
