@@ -560,47 +560,119 @@ function parseCampanhas(rows) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   PARSER — O que Aconteceu CSV
-   Estrutura: col 0 = campo, col 1..N = texto por mês
+   PARSER — O que Aconteceu CSV (FLEXÍVEL)
+   Procura por padrões: Março/Abril/Maio, Google, Meta, Outras
 ════════════════════════════════════════════════════════════ */
 function parseAconteceu(rows) {
-  // Encontrar linha de cabeçalho dos meses
-  const hdrIdx = rows.findIndex(r => r[0] && r[0].toUpperCase().includes('CAMPO'));
-  if (hdrIdx < 0) return;
-  const mesRow = rows[hdrIdx];
-  const mesesLocal = mesRow.slice(1).filter(m => m && m.trim() !== '');
+  // Normalizar: remover linhas vazias
+  const cleanRows = rows.filter(r => r.some(cell => cell && cell.trim() !== ''));
+  
+  // Detectar meses: procurar células com padrão "Mês/Ano"
+  const mesesEncontrados = new Set();
+  cleanRows.forEach(row => {
+    row.forEach(cell => {
+      if (cell && /^(janeiro|fevereiro|março|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/\d{4}$/i.test(cell.trim())) {
+        mesesEncontrados.add(cell.trim());
+      }
+    });
+  });
+  
+  // Se não encontrou padrão, usar MESES conhecidos
+  const mesesLocal = mesesEncontrados.size > 0 ? Array.from(mesesEncontrados) : MESES;
 
-  const rowGoogle = findRow(rows, 'Google Ads — Resumo') || findRow(rows, 'Google Ads');
-  const rowMeta   = findRow(rows, 'Meta Ads — Resumo')   || findRow(rows, 'Meta Ads');
-  const rowOutros = findRow(rows, 'Outras ações')         || findRow(rows, 'Outras');
+  // Construir objeto por mês
+  const result = {};
+  mesesLocal.forEach(mes => {
+    result[mes] = { mes, google: '', meta: '', outros: '' };
+  });
 
-  ACONTECEU = mesesLocal.map((mes, i) => ({
-    mes:    mes.trim(),
-    google: rowGoogle ? (rowGoogle[i+1] || '').trim() : '',
-    meta:   rowMeta   ? (rowMeta[i+1]   || '').trim() : '',
-    outros: rowOutros ? (rowOutros[i+1]  || '').trim() : '',
-  }));
+  // Varrer linhas procurando por seções
+  let currentMes = null;
+  let currentSeção = null;
+
+  cleanRows.forEach(row => {
+    const label = row[0] ? row[0].toLowerCase().trim() : '';
+    
+    // Detectar mês
+    mesesLocal.forEach(mes => {
+      if (label.includes(mes.toLowerCase())) {
+        currentMes = mes;
+        currentSeção = null;
+      }
+    });
+    
+    // Detectar seção
+    if (label.includes('google')) currentSeção = 'google';
+    else if (label.includes('meta')) currentSeção = 'meta';
+    else if (label.includes('outra') || label.includes('ação')) currentSeção = 'outros';
+    
+    // Se temos mês + seção + conteúdo, capturar
+    if (currentMes && currentSeção && row[1]) {
+      const content = row.slice(1).filter(c => c && c.trim() !== '').join(' ').trim();
+      if (content && content.length > 3) {
+        result[currentMes][currentSeção] = content;
+      }
+    }
+  });
+
+  ACONTECEU = mesesLocal.map(mes => result[mes]);
+  console.log('[parseAconteceu] Resultado:', ACONTECEU);
 }
 
 /* ════════════════════════════════════════════════════════════
-   PARSER — Próximos Passos CSV
+   PARSER — Próximos Passos CSV (FLEXÍVEL)
 ════════════════════════════════════════════════════════════ */
 function parseProximos(rows) {
-  const hdrIdx = rows.findIndex(r => r[0] && r[0].toUpperCase().includes('CAMPO'));
-  if (hdrIdx < 0) return;
-  const mesRow = rows[hdrIdx];
-  const mesesLocal = mesRow.slice(1).filter(m => m && m.trim() !== '');
+  // Normalizar
+  const cleanRows = rows.filter(r => r.some(cell => cell && cell.trim() !== ''));
+  
+  // Detectar meses
+  const mesesEncontrados = new Set();
+  cleanRows.forEach(row => {
+    row.forEach(cell => {
+      if (cell && /^(janeiro|fevereiro|março|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/\d{4}$/i.test(cell.trim())) {
+        mesesEncontrados.add(cell.trim());
+      }
+    });
+  });
+  
+  const mesesLocal = mesesEncontrados.size > 0 ? Array.from(mesesEncontrados) : MESES;
 
-  const rowGoogle = findRow(rows, 'Google Ads — Próximos') || findRow(rows, 'Google Ads');
-  const rowMeta   = findRow(rows, 'Meta Ads — Próximos')   || findRow(rows, 'Meta Ads');
-  const rowObs    = findRow(rows, 'Observações');
+  const result = {};
+  mesesLocal.forEach(mes => {
+    result[mes] = { mes, google: '', meta: '', obs: '' };
+  });
 
-  PROXIMOS = mesesLocal.map((mes, i) => ({
-    mes:    mes.trim(),
-    google: rowGoogle ? (rowGoogle[i+1] || '').trim() : '',
-    meta:   rowMeta   ? (rowMeta[i+1]   || '').trim() : '',
-    obs:    rowObs    ? (rowObs[i+1]    || '').trim() : '',
-  }));
+  let currentMes = null;
+  let currentSeção = null;
+
+  cleanRows.forEach(row => {
+    const label = row[0] ? row[0].toLowerCase().trim() : '';
+    
+    // Detectar mês
+    mesesLocal.forEach(mes => {
+      if (label.includes(mes.toLowerCase())) {
+        currentMes = mes;
+        currentSeção = null;
+      }
+    });
+    
+    // Detectar seção
+    if (label.includes('google')) currentSeção = 'google';
+    else if (label.includes('meta') || label.includes('ads')) currentSeção = 'meta';
+    else if (label.includes('obs') || label.includes('nota')) currentSeção = 'obs';
+    
+    // Capturar conteúdo
+    if (currentMes && currentSeção && row[1]) {
+      const content = row.slice(1).filter(c => c && c.trim() !== '').join(' ').trim();
+      if (content && content.length > 3) {
+        result[currentMes][currentSeção] = content;
+      }
+    }
+  });
+
+  PROXIMOS = mesesLocal.map(mes => result[mes]);
+  console.log('[parseProximos] Resultado:', PROXIMOS);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -998,36 +1070,72 @@ function buildCampanhasCharts() {
 ════════════════════════════════════════════════════════════ */
 function renderNarrativas() {
   const container = document.getElementById('narrative-aconteceu');
-  const filtered = ACONTECEU.filter(item => {
+  
+  if (!ACONTECEU || ACONTECEU.length === 0) {
+    container.innerHTML = '<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado disponível. Verifique o arquivo CSV.</div>';
+    return;
+  }
+
+  // Filtrar por mês ou usar todos se o filtro não funcionar
+  let filtered = ACONTECEU.filter(item => {
+    if (!item || !item.mes) return false;
     const idx = MESES.indexOf(item.mes);
     return idx !== -1 && idx >= filterIni && idx <= filterFim;
   });
-  if (!filtered.length) { container.innerHTML='<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado para o período selecionado.</div>'; return; }
+  
+  // Se nenhum encontrado e há dados, mostrar primeiro
+  if (!filtered.length && ACONTECEU.length > 0) {
+    filtered = ACONTECEU.slice(0, 1);
+    console.warn('[renderNarrativas] Filtro não encontrou match, mostrando primeiro item');
+  }
+  
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado para o período selecionado.</div>';
+    return;
+  }
+
   container.innerHTML = filtered.map(item => `
     <div class="narrative-card">
-      <div class="narrative-card-header"><div class="narrative-mes">${item.mes}</div><h3>Análise do Período</h3></div>
+      <div class="narrative-card-header"><div class="narrative-mes">${item.mes || '—'}</div><h3>Análise do Período</h3></div>
       <div class="narrative-card-body">
-        <div class="narrative-block"><div class="narrative-block-title">Google Ads</div><div class="narrative-text">${item.google||'<span class="empty-narrative">—</span>'}</div></div>
-        <div class="narrative-block"><div class="narrative-block-title meta">Meta Ads</div><div class="narrative-text">${item.meta||'<span class="empty-narrative">—</span>'}</div></div>
-        ${item.outros?`<div class="narrative-block"><div class="narrative-block-title other">Outras Ações</div><div class="narrative-text">${item.outros}</div></div>`:''}
+        <div class="narrative-block"><div class="narrative-block-title">Google Ads</div><div class="narrative-text">${(item.google && item.google.trim()) ? item.google : '<span class="empty-narrative">—</span>'}</div></div>
+        <div class="narrative-block"><div class="narrative-block-title meta">Meta Ads</div><div class="narrative-text">${(item.meta && item.meta.trim()) ? item.meta : '<span class="empty-narrative">—</span>'}</div></div>
+        ${(item.outros && item.outros.trim())?`<div class="narrative-block"><div class="narrative-block-title other">Outras Ações</div><div class="narrative-text">${item.outros}</div></div>`:''}
       </div>
     </div>`).join('');
 }
 
 function renderProximos() {
   const container = document.getElementById('proximos-grid');
-  const filtered = PROXIMOS.filter(item => {
+  
+  if (!PROXIMOS || PROXIMOS.length === 0) {
+    container.innerHTML = '<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado disponível. Verifique o arquivo CSV.</div>';
+    return;
+  }
+
+  let filtered = PROXIMOS.filter(item => {
+    if (!item || !item.mes) return false;
     const idx = MESES.indexOf(item.mes);
     return idx !== -1 && idx >= filterIni && idx <= filterFim;
   });
-  if (!filtered.length) { container.innerHTML='<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado para o período selecionado.</div>'; return; }
+  
+  if (!filtered.length && PROXIMOS.length > 0) {
+    filtered = PROXIMOS.slice(0, 1);
+    console.warn('[renderProximos] Filtro não encontrou match, mostrando primeiro item');
+  }
+  
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty-narrative" style="padding:24px;color:var(--text-muted)">Nenhum dado para o período selecionado.</div>';
+    return;
+  }
+
   container.innerHTML = filtered.map(item => `
     <div class="proximo-card">
-      <div class="proximo-header"><div class="proximo-mes">${item.mes}</div><h3>Plano de Ação</h3></div>
+      <div class="proximo-header"><div class="proximo-mes">${item.mes || '—'}</div><h3>Plano de Ação</h3></div>
       <div class="proximo-body">
-        <div class="proximo-block"><div class="proximo-block-title google">Google Ads</div><div class="proximo-text">${item.google}</div></div>
-        <div class="proximo-block"><div class="proximo-block-title meta">Meta Ads</div><div class="proximo-text">${item.meta}</div></div>
-        ${item.obs?`<div class="proximo-block"><div class="proximo-block-title obs">Observações</div><div class="proximo-text">${item.obs}</div></div>`:''}
+        <div class="proximo-block"><div class="proximo-block-title google">Google Ads</div><div class="proximo-text">${(item.google && item.google.trim()) ? item.google : '<span class="empty-narrative">—</span>'}</div></div>
+        <div class="proximo-block"><div class="proximo-block-title meta">Meta Ads</div><div class="proximo-text">${(item.meta && item.meta.trim()) ? item.meta : '<span class="empty-narrative">—</span>'}</div></div>
+        ${(item.obs && item.obs.trim())?`<div class="proximo-block"><div class="proximo-block-title obs">Observações</div><div class="proximo-text">${item.obs}</div></div>`:''}
       </div>
     </div>`).join('');
 }
