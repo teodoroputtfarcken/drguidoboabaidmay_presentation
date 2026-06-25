@@ -732,6 +732,36 @@ async function loadAllData() {
     parseAconteceu(rowsAcont);
     parseProximos(rowsProx);
 
+    // **NORMALIZAR MESES** — remover quebras de linha e espaços extras
+    MESES = MESES.map(m => m.replace(/\s+/g, ' ').trim());
+    MESES_SHORT = MESES.map(m => {
+      const parts = m.split('/');
+      const mesNome = parts[0].trim();
+      return mesNome.length > 3 ? mesNome.slice(0,3) : mesNome;
+    });
+    
+    // Normalizar em ACONTECEU
+    ACONTECEU = ACONTECEU.map(item => ({
+      ...item,
+      mes: (item.mes || '').replace(/\s+/g, ' ').trim()
+    }));
+    
+    // Normalizar em PROXIMOS
+    PROXIMOS = PROXIMOS.map(item => ({
+      ...item,
+      mes: (item.mes || '').replace(/\s+/g, ' ').trim()
+    }));
+    
+    // Normalizar em CAMPANHAS
+    CAMPANHAS = CAMPANHAS.map(item => ({
+      ...item,
+      mes: (item.mes || '').replace(/\s+/g, ' ').trim()
+    }));
+    
+    console.log('[loadAllData] MESES após normalização:', MESES);
+    console.log('[loadAllData] ACONTECEU após normalização:', ACONTECEU.map(a => a.mes));
+    console.log('[loadAllData] PROXIMOS após normalização:', PROXIMOS.map(p => p.mes));
+
     // Validar: se MESES ficou vazio, reverter para dados base
     if (!MESES || MESES.length === 0) {
       console.warn('[Dashboard] Parse retornou MESES vazio — mantendo dados base');
