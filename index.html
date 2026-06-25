@@ -564,43 +564,72 @@ function parseCampanhas(rows) {
    Estrutura: col 0 = campo, col 1..N = texto por mês
 ════════════════════════════════════════════════════════════ */
 function parseAconteceu(rows) {
-  // Encontrar linha de cabeçalho dos meses
-  const hdrIdx = rows.findIndex(r => r[0] && r[0].toUpperCase().includes('CAMPO'));
-  if (hdrIdx < 0) return;
-  const mesRow = rows[hdrIdx];
-  const mesesLocal = mesRow.slice(1).filter(m => m && m.trim() !== '');
+  // Encontrar linha de cabeçalho dos meses — procura por qualquer linha que contenha "2026" ou "/202"
+  let hdrIdx = rows.findIndex(r => r.some(cell => cell && /\d{4}|mês|mes/i.test(cell)));
+  if (hdrIdx < 0) hdrIdx = 1;
+  
+  const mesRow = rows[hdrIdx] || [];
+  const mesesLocal = mesRow.slice(1)
+    .filter(m => m && m.trim() !== '' && /\d{4}|\/|janeiro|fevereiro|março|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro/i.test(m))
+    .map(m => m.trim());
 
-  const rowGoogle = findRow(rows, 'Google Ads — Resumo') || findRow(rows, 'Google Ads');
-  const rowMeta   = findRow(rows, 'Meta Ads — Resumo')   || findRow(rows, 'Meta Ads');
-  const rowOutros = findRow(rows, 'Outras ações')         || findRow(rows, 'Outras');
+  if (mesesLocal.length === 0) {
+    console.warn('[parseAconteceu] Nenhum mês detectado');
+    return;
+  }
 
-  ACONTECEU = mesesLocal.map((mes, i) => ({
-    mes:    mes.trim(),
-    google: rowGoogle ? (rowGoogle[i+1] || '').trim() : '',
-    meta:   rowMeta   ? (rowMeta[i+1]   || '').trim() : '',
-    outros: rowOutros ? (rowOutros[i+1]  || '').trim() : '',
-  }));
+  // Procurar linhas de conteúdo de forma mais flexível
+  const rowGoogle = findRow(rows, 'Google') || rows[hdrIdx + 1] || [];
+  const rowMeta   = findRow(rows, 'Meta')   || rows[hdrIdx + 2] || [];
+  const rowOutros = findRow(rows, 'Outro') || findRow(rows, 'ação') || rows[hdrIdx + 3] || [];
+
+  ACONTECEU = mesesLocal.map((mes, i) => {
+    const colIdx = i + 1;
+    return {
+      mes:    mes,
+      google: (rowGoogle[colIdx] || '').toString().trim(),
+      meta:   (rowMeta[colIdx] || '').toString().trim(),
+      outros: (rowOutros[colIdx] || '').toString().trim(),
+    };
+  });
+
+  console.info('[parseAconteceu] Resultado:', ACONTECEU);
 }
 
 /* ════════════════════════════════════════════════════════════
    PARSER — Próximos Passos CSV
 ════════════════════════════════════════════════════════════ */
 function parseProximos(rows) {
-  const hdrIdx = rows.findIndex(r => r[0] && r[0].toUpperCase().includes('CAMPO'));
-  if (hdrIdx < 0) return;
-  const mesRow = rows[hdrIdx];
-  const mesesLocal = mesRow.slice(1).filter(m => m && m.trim() !== '');
+  // Encontrar linha de cabeçalho dos meses
+  let hdrIdx = rows.findIndex(r => r.some(cell => cell && /\d{4}|mês|mes/i.test(cell)));
+  if (hdrIdx < 0) hdrIdx = 1;
 
-  const rowGoogle = findRow(rows, 'Google Ads — Próximos') || findRow(rows, 'Google Ads');
-  const rowMeta   = findRow(rows, 'Meta Ads — Próximos')   || findRow(rows, 'Meta Ads');
-  const rowObs    = findRow(rows, 'Observações');
+  const mesRow = rows[hdrIdx] || [];
+  const mesesLocal = mesRow.slice(1)
+    .filter(m => m && m.trim() !== '' && /\d{4}|\/|janeiro|fevereiro|março|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro/i.test(m))
+    .map(m => m.trim());
 
-  PROXIMOS = mesesLocal.map((mes, i) => ({
-    mes:    mes.trim(),
-    google: rowGoogle ? (rowGoogle[i+1] || '').trim() : '',
-    meta:   rowMeta   ? (rowMeta[i+1]   || '').trim() : '',
-    obs:    rowObs    ? (rowObs[i+1]    || '').trim() : '',
-  }));
+  if (mesesLocal.length === 0) {
+    console.warn('[parseProximos] Nenhum mês detectado');
+    return;
+  }
+
+  // Procurar linhas de conteúdo
+  const rowGoogle = findRow(rows, 'Google') || rows[hdrIdx + 1] || [];
+  const rowMeta   = findRow(rows, 'Meta')   || rows[hdrIdx + 2] || [];
+  const rowObs    = findRow(rows, 'Obs')    || rows[hdrIdx + 3] || [];
+
+  PROXIMOS = mesesLocal.map((mes, i) => {
+    const colIdx = i + 1;
+    return {
+      mes:    mes,
+      google: (rowGoogle[colIdx] || '').toString().trim(),
+      meta:   (rowMeta[colIdx] || '').toString().trim(),
+      obs:    (rowObs[colIdx] || '').toString().trim(),
+    };
+  });
+
+  console.info('[parseProximos] Resultado:', PROXIMOS);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1011,6 +1040,46 @@ function buildCampanhasCharts() {
 ════════════════════════════════════════════════════════════ */
 function renderNarrativas() {
   const container = document.getElementById('narrative-aconteceu');
+  
+  // Se ACONTECEU vazio, usar dados base
+  if (!ACONTECEU || ACONTECEU.length === 0) {
+    console.warn('[renderNarrativas] ACONTECEU vazio, usando dados base');
+    const aconteceuBase = [
+      { mes:'Março/2026',
+        google:'Refinamento estratégico da conta com 110 alterações. Destaque para 414 negativações de palavras-chave. Separação de campanhas presencial/online. Foco em melhorar qualidade do tráfego e reduzir desperdício.',
+        meta:'Meta Ads atuando como canal de descoberta e tráfego. Início da nova campanha de seguidores (pausada temporariamente). Funil completo ainda não implementado.',
+        outros:'Elaboração da campanha de seguidores. Formulação do funil de conversão Meta Ads. Copy para nova landing page. Configuração inicial do CRM Kommo.' },
+      { mes:'Abril/2026',
+        google:'Campanha online (CPA R$42,36 em março) caiu para R$15,18. CTR caiu de 7,56% para 5,99%. Separação presencial/online mostrou resultado. Florianópolis com conversão cara mas volume alto.',
+        meta:'Funil existe mas não fecha: TOPO e MEIO com bom volume, FUNDO sem conversões com R$80,73 investidos. Aquisição de seguidores eficiente (R$1,49/seguidor) mas limitada pelo público disponível.',
+        outros:'' },
+      { mes:'Maio/2026',
+        google:`Em maio, a conta registrou 492 cliques, 7.237 impressões, CTR de 6,80%, CPC médio de R$5,76, 72 conversões e CPA médio de R$39,34. Houve aumento de 14,15% nos cliques e melhora no CTR (5,99% → 6,80%).
+
+Apesar do ganho em volume, o mês apresentou queda nas conversões: 72 contra 85 em abril (−15,29%). A taxa de conversão caiu de 19,72% para 14,63%, elevando o CPA de R$30,06 para R$39,34 (+30,87%).
+
+A conta passou por 277 alterações (vs 54 em abril). Melhor equilíbrio: Online (27 conv., CPA R$23,48) e Institucional (CPA R$15,37). Ponto de atenção: Florianópolis com CPA de R$71,73.`,
+        meta:`Mantivemos topo e meio de funil enquanto aguardávamos novo material para o FUNDO. A conta do Instagram sofreu limitação até 15/06 por uma postagem contendo uma caixa de remédios — violação das políticas da Meta sobre remédios controlados.
+
+Nesse cenário, qualquer alteração nas campanhas as teria suspendido.`,
+        outros:'Entrega da Landing Page e elaboração da estratégia para venda do Livro.' },
+    ];
+    const filtered = aconteceuBase.filter(item => {
+      const idx = MESES.indexOf(item.mes);
+      return idx >= filterIni && idx <= filterFim;
+    });
+    container.innerHTML = filtered.map(item => `
+      <div class="narrative-card">
+        <div class="narrative-card-header"><div class="narrative-mes">${item.mes}</div><h3>Análise do Período</h3></div>
+        <div class="narrative-card-body">
+          <div class="narrative-block"><div class="narrative-block-title">Google Ads</div><div class="narrative-text">${item.google||'<span class="empty-narrative">—</span>'}</div></div>
+          <div class="narrative-block"><div class="narrative-block-title meta">Meta Ads</div><div class="narrative-text">${item.meta||'<span class="empty-narrative">—</span>'}</div></div>
+          ${item.outros?`<div class="narrative-block"><div class="narrative-block-title other">Outras Ações</div><div class="narrative-text">${item.outros}</div></div>`:''}
+        </div>
+      </div>`).join('');
+    return;
+  }
+
   const filtered = ACONTECEU.filter(item => {
     const idx = MESES.indexOf(item.mes);
     return idx >= filterIni && idx <= filterFim;
@@ -1029,6 +1098,45 @@ function renderNarrativas() {
 
 function renderProximos() {
   const container = document.getElementById('proximos-grid');
+  
+  // Verificar se PROXIMOS tem dados
+  if (!PROXIMOS || PROXIMOS.length === 0) {
+    console.warn('[renderProximos] PROXIMOS vazio, usando dados base');
+    // Usar dados base definidos no início do script
+    const proximosBase = [
+      { mes:'Março/2026',
+        google:'Avaliar manutenção de Florianópolis e São Paulo. Decidir sobre Jaraguá do Sul. Analisar redução de alcance geográfico por campanha. Avaliar uso de CPA no lugar de maximizar conversões.',
+        meta:'Implementar funil completo de conversão. Atualizar criativos campanha seguidores. Avaliar estratégia ao final do mês.',
+        obs:'' },
+      { mes:'Abril/2026',
+        google:'Aumentar orçamento SP e Online. Desativar Jaraguá do Sul. Aumentar verba campanha Institucional. Investigar e reduzir CPA Florianópolis.',
+        meta:'Completar funil de aquisição. Aumentar orçamento e expandir segmentação da campanha de seguidores. Avaliar troca de conteúdo.',
+        obs:'Rastrear oportunidades de forma mais específica no Kommo.' },
+      { mes:'Maio/2026',
+        google:`Foco: recuperar eficiência de conversão perdida em maio. A conta aumentou cliques e melhorou CTR, mas converteu menos do que em abril.
+
+Prioridade: revisar qualidade dos termos de pesquisa, reforçar negativações e identificar buscas que geram cliques sem intenção real de agendamento.
+
+Aumentar clientes fora do estado e recuperar eficiência da campanha de Florianópolis. CPA de Florianópolis deve ser acompanhado de perto — está muito acima da média da conta.`,
+        meta:'Completar funil de aquisição com novos vídeos de fundo de funil e um novo formulário não condicional.',
+        obs:'' },
+    ];
+    const filtered = proximosBase.filter(item => {
+      const idx = MESES.indexOf(item.mes);
+      return idx >= filterIni && idx <= filterFim;
+    });
+    container.innerHTML = filtered.map(item => `
+      <div class="proximo-card">
+        <div class="proximo-header"><div class="proximo-mes">${item.mes}</div><h3>Plano de Ação</h3></div>
+        <div class="proximo-body">
+          <div class="proximo-block"><div class="proximo-block-title google">Google Ads</div><div class="proximo-text">${item.google}</div></div>
+          <div class="proximo-block"><div class="proximo-block-title meta">Meta Ads</div><div class="proximo-text">${item.meta}</div></div>
+          ${item.obs?`<div class="proximo-block"><div class="proximo-block-title obs">Observações</div><div class="proximo-text">${item.obs}</div></div>`:''}
+        </div>
+      </div>`).join('');
+    return;
+  }
+
   const filtered = PROXIMOS.filter(item => {
     const idx = MESES.indexOf(item.mes);
     return idx >= filterIni && idx <= filterFim;
@@ -1077,7 +1185,7 @@ function initDashboard() {
 /* ════════════════════════════════════════════════════════════
    LOGIN
 ════════════════════════════════════════════════════════════ */
-const USERS = { 'teodoro':'2026', 'fernanda':'2026', 'Paula':'2026' };
+const USERS = { 'teodoro':'2026', 'fernanda':'2026' };
 function doLogin() {
   const user = document.getElementById('login-user').value.trim().toLowerCase();
   const pass = document.getElementById('login-pass').value;
