@@ -439,7 +439,15 @@ function parseVisao(rows) {
   const mesRowCandidate = rows.find(r => r.slice(1).some(c => c && /\d{4}/.test(c)));
   if (mesRowCandidate) mesRow = mesRowCandidate;
 
-  MESES = mesRow.slice(1).filter(m => m && m.trim() !== '' && /\d/.test(m)).map(m => m.trim());
+  // Extrair meses e REMOVER sufixos como " (2º Mês)", " (3º Mês)", etc
+  MESES = mesRow.slice(1)
+    .filter(m => m && m.trim() !== '' && /\d{4}/.test(m))
+    .map(m => m.trim())
+    .map(m => m.replace(/\s*\(\d+º\s+[^)]*\)\s*$/i, '').trim()); // Remove " (2º Mês)" etc
+  
+  console.log('[parseVisao] MESES antes de normalizar sufixos:', mesRow.slice(1).filter(m => m));
+  console.log('[parseVisao] MESES após remover sufixos:', MESES);
+  
   MESES_SHORT = MESES.map(m => {
     const parts = m.split('/');
     const mesNome = parts[0].trim();
